@@ -7,6 +7,7 @@ import requests
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from dotenv import load_dotenv
+from db import get_conn
 
 load_dotenv()
 
@@ -24,6 +25,13 @@ def require_env(name: str) -> str:
 @app.get("/health")
 def health():
     return {"ok": True}
+
+@app.get("/db-health")
+def db_health():
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("select 1 as ok;")
+            return cur.fetchone()
 
 @app.get("/connect")
 def connect(request: Request):
