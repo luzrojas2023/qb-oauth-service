@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from dotenv import load_dotenv
 from db import get_conn
+from datetime import datetime, timedelta, timezone
 
 load_dotenv()
 
@@ -104,13 +105,38 @@ def oauth_callback(request: Request, code: str | None = None, realmId: str | Non
     if token_resp.status_code >= 400:
         return JSONResponse({"error": "token_exchange_failed", "details": data}, status_code=500)
 
-    # IMPORTANT: For now, we just return values so you can verify it works.
-    # Next step: store refresh_token securely in a DB keyed by realmId.
-    return {
-        "connected": True,
-        "realmId": realmId,
-        "access_token": data.get("access_token"),
-        "refresh_token": data.get("refresh_token"),
-        "expires_in": data.get("expires_in"),
-        "x_refresh_token_expires_in": data.get("x_refresh_token_expires_in"),
-    }
+    # Compute expiry timestamps
+expires_in = int(data.get("expires_in", 3600))
+expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+
+refresh_expires_in = data.get("x_refresh_token_expires_in")
+refresh_expires_at = None
+if refresh_expires_in:
+    refresh_expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(refresh_expires_in))
+
+access_token = data.get("access_token")
+refresh_token = data.get("refresh_token")
+
+if not access_token or not refresh_token:
+    return JSONResponse({"error": "missing_tokens_in_response", "details": data}, status_code=500)
+
+# Store tokens safely in Supabase (qbo_tokens)
+with get_conn() as conn:
+    with conn.cursor() as cur:
+        cur.execute("""
+            insert into qbo_tokens (
+              realm_id, access_token, refresh_token, expires_at, refresh_expires_at, updated_at
+            )
+            values (%s, %s, %s, %s, %s, now())
+            on conflict (realm_id)
+            do update set
+              access_token = excluded.access_token,
+              refresh_token = excluded.refresh_token,
+              expires_at = excluded.expires_at,
+              refresh_expires_at = excluded.refresh_expires_at,
+              updated_at = now();
+        """, (realmId, access_token, refresh_token, expires_at, refresh_expires_at))
+    conn.commit()
+
+# IMPORTANT: Do not return tokens
+return {"connected": True, "realmId": realmId}
