@@ -23,6 +23,30 @@ def require_env(name: str) -> str:
         raise RuntimeError(f"Missing env var: {name}")
     return val
 
+def intuit_env() -> str:
+    # default to sandbox if not set
+    return os.getenv("INTUIT_ENV", "sandbox").lower().strip()
+
+def intuit_is_prod() -> bool:
+    return intuit_env() in ("prod", "production")
+
+# This one matters for data calls (Invoices, Customers, Items, etc.)
+QBO_API_BASE = (
+    "https://quickbooks.api.intuit.com"
+    if intuit_is_prod()
+    else "https://sandbox-quickbooks.api.intuit.com"
+)
+
+def get_intuit_client_id() -> str:
+    if intuit_is_prod():
+        return require_env("INTUIT_CLIENT_ID")
+    return require_env("INTUIT_CLIENT_ID_SANDBOX")
+
+def get_intuit_client_secret() -> str:
+    if intuit_is_prod():
+        return require_env("INTUIT_CLIENT_SECRET")
+    return require_env("INTUIT_CLIENT_SECRET_SANDBOX")
+
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -39,7 +63,7 @@ def connect(request: Request):
     """
     Step 1: Redirect the browser to Intuit's consent screen.
     """
-    client_id = require_env("INTUIT_CLIENT_ID")
+    client_id = get_intuit_client_id()
     redirect_uri = require_env("INTUIT_REDIRECT_URI")
     scope = os.getenv("INTUIT_SCOPE", "com.intuit.quickbooks.accounting")
 
@@ -62,7 +86,7 @@ def connect(request: Request):
         value=state,
         httponly=True,
         samesite="lax",
-        secure=False,  # Render is https -> set TRUE in production later
+        secure=True,  # Render is https -> set TRUE in production later
         max_age=10 * 60,
     )
     return resp
@@ -80,8 +104,8 @@ def oauth_callback(request: Request, code: str | None = None, realmId: str | Non
     if not cookie_state or cookie_state != state:
         return JSONResponse({"error": "invalid_state"}, status_code=400)
 
-    client_id = require_env("INTUIT_CLIENT_ID")
-    client_secret = require_env("INTUIT_CLIENT_SECRET")
+    client_id = get_intuit_client_id()
+    client_secret = get_intuit_client_secret()
     redirect_uri = require_env("INTUIT_REDIRECT_URI")
 
     basic = base64.b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode("utf-8")
