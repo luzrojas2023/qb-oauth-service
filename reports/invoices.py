@@ -103,21 +103,55 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
         writer = csv.writer(text_buf)
 
         headers = [
-            "Id", "DocNumber", "TxnDate", "CustomerRef", "TotalAmt", "Balance",
-            "Line_json", "MetaData_json", "Raw_json",
+            "Id",
+            "DocNumber",
+            "TxnDate",
+    
+            # CustomerRef split
+            "CustomerId",
+            "CustomerName",
+    
+            "TotalAmt",
+            "Balance",
+    
+            # MetaData split
+            "MetaData_CreateTime",
+            "MetaData_LastModifiedByRef",
+            "MetaData_LastUpdatedTime",
+    
+            # Keep these for detail / audit
+            "Line_json",
+            "Raw_json",
         ]
         writer.writerow(headers)
 
         for inv in invoices:
+            customer_ref = inv.get("CustomerRef") or {}
+            meta = inv.get("MetaData") or {}
+    
+            customer_id = customer_ref.get("value")
+            customer_name = customer_ref.get("name")
+    
+            meta_create_time = meta.get("CreateTime")
+            meta_last_modified_by_ref = meta.get("LastModifiedByRef")
+            meta_last_updated_time = meta.get("LastUpdatedTime")
+
             writer.writerow([
                 inv.get("Id"),
                 inv.get("DocNumber"),
                 inv.get("TxnDate"),
-                json.dumps(inv.get("CustomerRef"), ensure_ascii=False),
+    
+                customer_id,
+                customer_name,
+    
                 inv.get("TotalAmt"),
                 inv.get("Balance"),
+    
+                meta_create_time,
+                meta_last_modified_by_ref,
+                meta_last_updated_time,
+    
                 json.dumps(inv.get("Line"), ensure_ascii=False),
-                json.dumps(inv.get("MetaData"), ensure_ascii=False),
                 json.dumps(inv, ensure_ascii=False),
             ])
 
