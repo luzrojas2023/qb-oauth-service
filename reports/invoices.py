@@ -50,21 +50,80 @@ def qbo_query_all(realm_id: str, query: str, access_token: str, qbo_api_base: st
     return results
 
 
-@router.get("/year/{year}")
-def download_invoices_for_year(
-    realmId: str,
-    year: int,
-    format: str = "json",
-):
-    """
-    Download ALL invoices for a calendar year, sorted by TxnDate DESC.
-    format: json (default) or csv
+from fastapi import Request
 
-    NOTE: This module expects these to be attached to app.state from main.py:
-      - app.state.get_valid_access_token(realmId) -> access_token
-      - app.state.qbo_api_base -> str
-    """
-    # We can't access app.state here directly unless we read it from request.app,
-    # so we accept it via FastAPI dependency injection by using Request in signature:
-    # (Implemented below as wrapper to keep endpoint clean)
-    raise NotImplementedError("This function should be wrapped by request-aware handler.")
+@router.get("/year/{year}")
+def download_invoices_for_year(request: Request, realmId: str, year: int, format: str = "json"):
+    get_valid_access_token = request.app.state.get_valid_access_token
+    qbo_api_base = request.app.state.qbo_api_base
+
+    # 1) Get a valid token (auto-refresh inside)
+    try:
+        access_token = get_valid_access_token(realmId)
+    except RuntimeError as e:
+        msg = str(e)
+        if msg.startswith("RECONNECT_REQUIRED"):
+            return JSONResponse(
+                {"error": "reconnect_required", "connect_url": "/connect", "message": msg},
+                status_code=401,
+            )
+        return JSONResponse({"error": "auth_failed", "message": msg}, status_code=500)
+
+    start_date = f"{year}-01-01"
+    end_date = f"{year}-12-31"
+
+    q = (
+        "SELECT * FROM Invoice "
+        f"WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' "
+        "ORDER BY TxnDate DESC"
+    )
+
+    invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
+
+    if format.lower() == "json":
+        buf = io.BytesIO()
+        buf.write(json.dumps(invoices, indent=2, default=str).encode("utf-8"))
+        buf.seek(0)
+        filename = f"invoices_{year}_{realmId}.json"
+        return StreamingResponse(
+            buf,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    if format.lower() == "csv":
+        text_buf = io.StringIO()
+        writer = csv.writer(text_buf)
+
+        headers = [
+            "Id", "DocNumber", "TxnDate", "CustomerRef", "TotalAmt", "Balance",
+            "Line_json", "MetaData_json", "Raw_json",
+        ]
+        writer.writerow(headers)
+
+        for inv in invoices:
+            writer.writerow([
+                inv.get("Id"),
+                inv.get("DocNumber"),
+                inv.get("TxnDate"),
+                json.dumps(inv.get("CustomerRef"), ensure_ascii=False),
+                inv.get("TotalAmt"),
+                inv.get("Balance"),
+                json.dumps(inv.get("Line"), ensure_ascii=False),
+                json.dumps(inv.get("MetaData"), ensure_ascii=False),
+                json.dumps(inv, ensure_ascii=False),
+            ])
+
+        data = text_buf.getvalue().encode("utf-8-sig")
+        buf = io.BytesIO(data)
+        buf.seek(0)
+
+        filename = f"invoices_{year}_{realmId}.csv"
+        return StreamingResponse(
+            buf,
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    return JSONResponse({"error": "invalid_format", "allowed": ["json", "csv"]}, status_code=400)
+
