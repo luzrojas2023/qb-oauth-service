@@ -70,7 +70,6 @@ def auth_status(realmId: str):
 
     return {"realmId": realmId, **row}
 
-
 def refresh_access_token(realm_id: str) -> str:
     """
     Uses stored refresh_token to fetch a new access_token.
@@ -153,7 +152,6 @@ def refresh_access_token(realm_id: str) -> str:
 
     return new_access_token
 
-
 def get_valid_access_token(realm_id: str, refresh_skew_seconds: int = 300) -> str:
     """
     Returns a currently-valid access token.
@@ -175,7 +173,6 @@ def get_valid_access_token(realm_id: str, refresh_skew_seconds: int = 300) -> st
         return refresh_access_token(realm_id)
 
     return row["access_token"]
-
 
 @app.get("/connect")
 def connect(request: Request):
