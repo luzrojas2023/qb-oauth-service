@@ -8,34 +8,41 @@ from fastapi.responses import StreamingResponse, JSONResponse
 
 router = APIRouter(prefix="/reports/invoices", tags=["reports-invoices"])
 
-
-def qbo_query_all(realm_id: str, query: str, access_token: str, qbo_api_base: str, page_size: int = 1000) -> list[dict]:
+def qbo_query_all(
+    realm_id: str,
+    query: str,
+    access_token: str,
+    qbo_api_base: str,
+    page_size: int = 1000,
+) -> list[dict]:
     """
-    Runs a QBO SQL-like query and fetches ALL pages.
-    QBO Query API supports MAXRESULTS (<=1000) and STARTPOSITION (1-based).
+    Runs a QBO query and fetches ALL pages using GET with `query=` param.
+    This avoids QBO's common "QueryParserError: null" issue seen with POST bodies.
     """
     results: list[dict] = []
     start = 1
 
     while True:
         paged_query = f"{query} STARTPOSITION {start} MAXRESULTS {page_size}"
-        url = f"{qbo_api_base}/v3/company/{realm_id}/query?minorversion=75"
+        url = f"{qbo_api_base}/v3/company/{realm_id}/query"
 
-        r = requests.post(
+        r = requests.get(
             url,
+            params={"query": paged_query, "minorversion": "75"},
             headers={
                 "Authorization": f"Bearer {access_token}",
                 "Accept": "application/json",
-                "Content-Type": "text/plain",
             },
-            data=paged_query,
             timeout=60,
         )
 
         if r.status_code == 401:
             raise RuntimeError(f"AUTH_401: {r.text}")
         if r.status_code >= 400:
-            raise RuntimeError(f"QBO_QUERY_FAILED ({r.status_code}): {r.text}")
+            # helpful debug (no tokens leaked)
+            raise RuntimeError(
+                f"QBO_QUERY_FAILED ({r.status_code}): {r.text} | sent_query={paged_query}"
+            )
 
         payload = r.json() if r.content else {}
         q = payload.get("QueryResponse", {})
@@ -73,9 +80,9 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
     end_date = f"{year}-12-31"
 
     q = (
-        "SELECT * FROM Invoice"
-        f" WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
-        " ORDERBY TxnDate DESC"
+        "SELECT * FROM Invoice "
+        f"WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' "
+        "ORDERBY TxnDate DESC"
     )
 
     invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
