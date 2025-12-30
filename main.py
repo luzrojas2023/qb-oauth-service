@@ -280,3 +280,24 @@ def oauth_callback(request: Request, code: str | None = None, realmId: str | Non
     
     # IMPORTANT: Do not return tokens
     return {"connected": True, "realmId": realmId}
+
+@app.get("/qbo/company-info")
+def company_info(realmId: str):
+    try:
+        access_token = get_valid_access_token(realmId)
+    except RuntimeError as e:
+        msg = str(e)
+        if msg.startswith("RECONNECT_REQUIRED"):
+            return JSONResponse(
+                {"error": "reconnect_required", "connect_url": "/connect", "message": msg},
+                status_code=401,
+            )
+        return JSONResponse({"error": "auth_failed", "message": msg}, status_code=500)
+
+    url = f"{QBO_API_BASE}/v3/company/{realmId}/companyinfo/{realmId}?minorversion=75"
+    r = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
+        timeout=30,
+    )
+    return r.json()
