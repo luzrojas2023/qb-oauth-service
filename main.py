@@ -10,9 +10,13 @@ from dotenv import load_dotenv
 from db import get_conn
 from datetime import datetime, timedelta, timezone
 
+from reports.invoices import router as invoices_router
+
+
 load_dotenv()
 
 app = FastAPI()
+app.include_router(invoices_router)
 
 AUTHORIZE_URL = "https://appcenter.intuit.com/connect/oauth2"
 TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
@@ -301,3 +305,7 @@ def company_info(realmId: str):
         timeout=30,
     )
     return r.json()
+
+app.state.get_valid_access_token = get_valid_access_token
+app.state.qbo_api_base = QBO_API_BASE
+
