@@ -144,10 +144,13 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
             "MetaData_CreateTime",
             "MetaData_LastModifiedByRef_value",
             "MetaData_LastUpdatedTime",
+
+            # CustomField_json split
+            "P.O. Number",
+            "Sales Rep",
     
             # Keep these as JSON blobs for now
             "Line_json",
-            "CustomField_json",
             "TxnTaxDetail_json",
             "LinkedTxn_json",
         ]
@@ -196,6 +199,27 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
             ship_postal = safe_get(inv, ["ShipAddr", "PostalCode"])
     
             bill_email = safe_get(inv, ["BillEmail", "Address"])
+
+            custom_fields = inv.get("CustomField") or []
+
+            po_number = ""
+            sales_rep = ""
+            
+            for cf in custom_fields:
+                name = (cf.get("Name") or "").strip()
+                # QBO custom fields can store in StringValue, NumberValue, or sometimes a generic "value"
+                val = (
+                    cf.get("StringValue")
+                    or cf.get("NumberValue")
+                    or cf.get("Value")
+                    or cf.get("value")
+                    or ""
+                )
+            
+                if name.lower() in ("p.o. number", "po number", "p.o number", "po#", "po"):
+                    po_number = str(val)
+                elif name.lower() in ("sales rep", "salesrep", "sales representative", "sales agent"):
+                    sales_rep = str(val)
     
             writer.writerow([
                 inv.get("Id"),
@@ -232,9 +256,11 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
                 meta_create_time,
                 meta_last_modified_by_ref_value,
                 meta_last_updated_time,
-    
+
+                po_number,
+                sales_rep,
+
                 safe_json(inv.get("Line")),
-                safe_json(inv.get("CustomField")),
                 safe_json(inv.get("TxnTaxDetail")),
                 safe_json(inv.get("LinkedTxn")),
             ])
