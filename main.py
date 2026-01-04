@@ -10,12 +10,13 @@ from dotenv import load_dotenv
 from db import get_conn
 from datetime import datetime, timedelta, timezone
 
+from reports.invoices_all import router as invoices_all_router
 from reports.invoices import router as invoices_router
-
 
 load_dotenv()
 
 app = FastAPI()
+app.include_router(invoices_all_router)
 app.include_router(invoices_router)
 
 AUTHORIZE_URL = "https://appcenter.intuit.com/connect/oauth2"
