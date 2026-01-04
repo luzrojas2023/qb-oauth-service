@@ -110,7 +110,7 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
             "TxnDate",
     
             # CustomerRef split
-            "CustomerId",
+            #"CustomerId",
             "CustomerName",
     
             # Amounts
@@ -138,10 +138,10 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
             #"ShipAddr_City",
             #"ShipAddr_CountrySubDivisionCode",
             #"ShipAddr_PostalCode",
-            "BillEmail_Address",
+            #"BillEmail_Address",
     
             # MetaData split (and exclude MetaData from Raw fields)
-            "MetaData_CreateTime",
+            #"MetaData_CreateTime",
             "MetaData_LastModifiedByRef_value",
             "MetaData_LastUpdatedTime",
 
@@ -181,7 +181,7 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
             meta = inv.get("MetaData") or {}
 
             # Customer split
-            customer_id = customer_ref.get("value")
+            #customer_id = customer_ref.get("value")
             customer_name = customer_ref.get("name")
     
             # MetaData split
@@ -204,7 +204,7 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
             #ship_state = safe_get(inv, ["ShipAddr", "CountrySubDivisionCode"])
             #ship_postal = safe_get(inv, ["ShipAddr", "PostalCode"])
     
-            bill_email = safe_get(inv, ["BillEmail", "Address"])
+            #bill_email = safe_get(inv, ["BillEmail", "Address"])
 
             custom_fields = inv.get("CustomField") or []
 
@@ -233,7 +233,7 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
                 inv.get("DocNumber"),
                 inv.get("TxnDate"),
     
-                customer_id,
+                #customer_id,
                 customer_name,
     
                 inv.get("TotalAmt"),
@@ -257,9 +257,9 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
                 #ship_city,
                 #ship_state,
                 #ship_postal,
-                bill_email,
+                #bill_email,
     
-                meta_create_time,
+                #meta_create_time,
                 meta_last_modified_by_ref_value,
                 meta_last_updated_time,
 
