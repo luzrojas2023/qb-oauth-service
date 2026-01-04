@@ -1,4 +1,4 @@
-# reports/invoices.py
+# reports/invoices_all.py
 import io
 import csv
 import json
@@ -6,7 +6,8 @@ import requests
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse, JSONResponse
 
-router = APIRouter(prefix="/reports/invoices", tags=["reports-invoices"])
+router = APIRouter(prefix="/reports/invoices_all", tags=["reports-invoices-all"])
+
 
 def qbo_query_all(
     realm_id: str,
@@ -269,7 +270,7 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
         buf = io.BytesIO(data)
         buf.seek(0)
     
-        filename = f"invoices_{year}_{realmId}.csv"
+        filename = f"invoices_all_{year}_{realmId}.csv"
         return StreamingResponse(
             buf,
             media_type="text/csv",
