@@ -105,55 +105,29 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
         headers = [
             # Core identifiers
             "Id",
-            #"SyncToken",
             "DocNumber",
             "TxnDate",
     
             # CustomerRef split
             #"CustomerId",
             "CustomerName",
+
+            # CustomField_json split
+            "P.O. Number",
     
             # Amounts
             "TotalAmt",
             "Balance",
     
-            # Status/flags commonly used in reporting
-            #"PrivateNote",
-            #"TxnStatus",
-            #"EmailStatus",
-            #"PrintStatus",
-    
-            # Currency / terms / due
-            #"CurrencyRef_value",
-            #"CurrencyRef_name",
             "DueDate",
-            #"ExchangeRate",
-    
-            # Sales / billing addresses & email (often needed)
-            #"BillAddr_Line1",
-            #"BillAddr_City",
-            #"BillAddr_CountrySubDivisionCode",
-            #"BillAddr_PostalCode",
-            #"ShipAddr_Line1",
-            #"ShipAddr_City",
-            #"ShipAddr_CountrySubDivisionCode",
-            #"ShipAddr_PostalCode",
-            #"BillEmail_Address",
     
             # MetaData split (and exclude MetaData from Raw fields)
-            #"MetaData_CreateTime",
             "MetaData_LastModifiedByRef_value",
             "MetaData_LastUpdatedTime",
 
             # CustomField_json split
-            "P.O. Number",
             "Sales Rep",
     
-            # Keep these as JSON blobs for now
-            #"Line_json",
-            #"TxnTaxDetail_json",
-            #"LinkedTxn_json",
-
             # Core identifiers
             "SyncToken",
 
@@ -189,23 +163,6 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
             meta_last_modified_by_ref_value = (meta.get("LastModifiedByRef") or {}).get("value")
             meta_last_updated_time = meta.get("LastUpdatedTime")
     
-            # CurrencyRef split
-            #currency_value = safe_get(inv, ["CurrencyRef", "value"])
-            #currency_name = safe_get(inv, ["CurrencyRef", "name"])
-
-            # Bill/Ship addresses
-            #bill_line1 = safe_get(inv, ["BillAddr", "Line1"])
-            #bill_city = safe_get(inv, ["BillAddr", "City"])
-            #bill_state = safe_get(inv, ["BillAddr", "CountrySubDivisionCode"])
-            #bill_postal = safe_get(inv, ["BillAddr", "PostalCode"])
-    
-            #ship_line1 = safe_get(inv, ["ShipAddr", "Line1"])
-            #ship_city = safe_get(inv, ["ShipAddr", "City"])
-            #ship_state = safe_get(inv, ["ShipAddr", "CountrySubDivisionCode"])
-            #ship_postal = safe_get(inv, ["ShipAddr", "PostalCode"])
-    
-            #bill_email = safe_get(inv, ["BillEmail", "Address"])
-
             custom_fields = inv.get("CustomField") or []
 
             po_number = ""
@@ -229,49 +186,24 @@ def download_invoices_for_year(request: Request, realmId: str, year: int, format
     
             writer.writerow([
                 inv.get("Id"),
-                #inv.get("SyncToken"),
                 inv.get("DocNumber"),
                 inv.get("TxnDate"),
     
-                #customer_id,
                 customer_name,
+                po_number,
     
                 inv.get("TotalAmt"),
                 inv.get("Balance"),
     
-                #inv.get("PrivateNote"),
-                #inv.get("TxnStatus"),
-                #inv.get("EmailStatus"),
-                #inv.get("PrintStatus"),
-    
-                #currency_value,
-                #currency_name,
                 inv.get("DueDate"),
-                #inv.get("ExchangeRate"),
-    
-                #bill_line1,
-                #bill_city,
-                #bill_state,
-                #bill_postal,
-                #ship_line1,
-                #ship_city,
-                #ship_state,
-                #ship_postal,
-                #bill_email,
-    
-                #meta_create_time,
+      
                 meta_last_modified_by_ref_value,
                 meta_last_updated_time,
 
-                po_number,
                 sales_rep,
 
                 inv.get("SyncToken"),
                 inv.get("PrivateNote"),
-
-                #safe_json(inv.get("Line")),
-                #safe_json(inv.get("TxnTaxDetail")),
-                #safe_json(inv.get("LinkedTxn")),
             ])
 
         data = text_buf.getvalue().encode("utf-8-sig")
