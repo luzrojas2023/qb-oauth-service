@@ -11,6 +11,21 @@ from fastapi.responses import StreamingResponse, JSONResponse
 router = APIRouter(prefix="/reports/invoice_lines_all", tags=["reports-invoice-lines-all"])
 
 
+def ref_value(ref: dict | None) -> str:
+    if isinstance(ref, dict):
+        return (ref.get("value") or "").strip()
+    return ""
+
+def ref_name(ref: dict | None) -> str:
+    if isinstance(ref, dict):
+        return (ref.get("name") or "").strip()
+    return ""
+
+def ref_json(ref: dict | None) -> str:
+    # Optional: if you want a JSON string in CSV too
+    import json
+    return json.dumps(ref, ensure_ascii=False) if isinstance(ref, dict) else ""
+
 def qbo_query_all(
     realm_id: str,
     query: str,
@@ -99,7 +114,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
             "TxnDate": txn_date,
             "CustomerName": customer_name,
             "P.O. NumberId": po_number_id,
-
+            
             # Line identifiers / ordering
             "LineIndex": idx,
             "LineId": line.get("Id", ""),
@@ -178,6 +193,7 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             "TxnDate",
             "CustomerName",
             "P.O. NumberId",
+            "SalesTermName",
         
             # rest of your line fields
             "LineIndex",
@@ -202,6 +218,7 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             row = dict(r)
             row["Line_json"] = safe_json(r.get("Line_json"))
             row["Invoice_json"] = safe_json(r.get("Invoice_json"))
+            row["SalesTermRef"] = invoice.get("SalesTermRef")
             writer.writerow(row)
 
         data = text_buf.getvalue().encode("utf-8-sig")
