@@ -33,34 +33,38 @@ def qbo_query_all(
     qbo_api_base: str,
     page_size: int = 1000,
 ) -> list[dict]:
+    """
+    Runs a QBO query and fetches ALL pages using GET with `query=` param.
+    This avoids QBO's common "QueryParserError: null" issue seen with POST bodies.
+    """
     results: list[dict] = []
     start = 1
 
     while True:
         paged_query = f"{query} STARTPOSITION {start} MAXRESULTS {page_size}"
-        url = f"{qbo_api_base}/v3/company/{realm_id}/query?minorversion=75"
+        url = f"{qbo_api_base}/v3/company/{realm_id}/query"
 
-        print("QBO QUERY (first page):", paged_query[:500]) # For debugging ONLY
-
-        r = requests.post(
+        r = requests.get(
             url,
+            params={"query": paged_query, "minorversion": "75"},
             headers={
                 "Authorization": f"Bearer {access_token}",
                 "Accept": "application/json",
-                "Content-Type": "text/plain",
             },
-            data=paged_query,
             timeout=60,
         )
 
         if r.status_code == 401:
             raise RuntimeError(f"AUTH_401: {r.text}")
         if r.status_code >= 400:
-            raise RuntimeError(f"QBO_QUERY_FAILED ({r.status_code}): {r.text}")
+            # helpful debug (no tokens leaked)
+            raise RuntimeError(
+                f"QBO_QUERY_FAILED ({r.status_code}): {r.text} | sent_query={paged_query}"
+            )
 
         payload = r.json() if r.content else {}
-        qr = payload.get("QueryResponse", {})
-        batch = qr.get("Invoice", []) or []
+        q = payload.get("QueryResponse", {})
+        batch = q.get("Invoice", []) or []
         results.extend(batch)
 
         if len(batch) < page_size:
@@ -157,12 +161,13 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
     # 2) Query all invoices in the year, sorted by TxnDate desc
     start_date = f"{year}-01-01"
     end_date = f"{year}-12-31"
+
     q = (
         "SELECT * FROM Invoice "
         f"WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' "
         "ORDERBY TxnDate DESC"
     )
-
+    
     invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
 
     # 3) Flatten lines
