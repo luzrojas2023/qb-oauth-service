@@ -165,7 +165,7 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
     q = (
         "SELECT * FROM Invoice "
         f"WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' "
-        "ORDERBY TxnDate DESC"
+        "ORDER BY TxnDate DESC"
     )
     
     invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
