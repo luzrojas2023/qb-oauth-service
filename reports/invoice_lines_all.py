@@ -40,6 +40,8 @@ def qbo_query_all(
         paged_query = f"{query} STARTPOSITION {start} MAXRESULTS {page_size}"
         url = f"{qbo_api_base}/v3/company/{realm_id}/query?minorversion=75"
 
+        print("QBO QUERY (first page):", paged_query[:500]) # For debugging ONLY
+
         r = requests.post(
             url,
             headers={
