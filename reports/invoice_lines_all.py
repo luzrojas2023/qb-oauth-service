@@ -225,7 +225,8 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             row = dict(r)
             row["Line_json"] = safe_json(r.get("Line_json"))
             row["Invoice_json"] = safe_json(r.get("Invoice_json"))
-            row["SalesTermRef"] = invoice.get("SalesTermRef")
+            #row["SalesTermRef"] = invoice.get("SalesTermRef")
+            row["SalesTermRef"] = safe_json(r.get("SalesTermRef"))
             writer.writerow(row)
 
         data = text_buf.getvalue().encode("utf-8-sig")
