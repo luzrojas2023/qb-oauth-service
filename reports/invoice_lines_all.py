@@ -121,8 +121,8 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
         item_ref = sales_item_line_detail.get("ItemRef") or {}
         item_name = item_ref.get("name", "")
         
-        unit_price = sales_item_line_detail.get("UnitPrice") or {} 
-        qty = sales_item_line_detail.get("Qty") or {} 
+        unit_price = sales_item_line_detail.get("UnitPrice", "") or {} 
+        qty = sales_item_line_detail.get("Qty", "") or {} 
 
         row = {
             # Requested parent fields:
