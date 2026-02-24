@@ -116,6 +116,14 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
     for idx, line in enumerate(lines, start=1):
         # ... (no change to your line parsing)
 
+        # Extract SalesItemLineDetail
+        sales_item_line_detail = line.get("SalesItemLineDetail") or {}
+        item_ref = sales_item_line_detail.get("ItemRef") or {}
+        item_name = item_ref.get("name", "")
+        
+        unit_price = sales_item_line_detail.get("UnitPrice") or {} 
+        qty = sales_item_line_detail.get("Qty") or {} 
+
         row = {
             # Requested parent fields:
             "Invoice Id": invoice_id,
@@ -134,6 +142,10 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
             "Amount": line.get("Amount", ""),
             "Description": line.get("Description", ""),
 
+            "Item": item_name,
+            "Unit Price": unit_price,
+            "Qty": qty,
+                          
             # keep your SalesItemLineDetail extraction, etc.
             # ...
             "Line_json": line,
@@ -199,7 +211,7 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
         # We'll keep key extracted columns + JSON blobs for the complex parts.
         fieldnames = [
             # requested invoice parent fields
-            "Id",
+            "Invoice Id",
             "DocNumber",
             "TxnDate",
             "CustomerName",
@@ -212,11 +224,12 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             "DetailType",
             "Amount",
             "Description",
-            "ItemId",
-            "ItemName",
+            #"ItemId",
+            #"ItemName",
+            "Item",
+            "Unit Price",
             "Qty",
-            "UnitPrice",
-            "TaxCode",
+            #"TaxCode",
             "Line_json",
             "Invoice_json",
         ]
