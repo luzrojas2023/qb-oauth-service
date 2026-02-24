@@ -90,7 +90,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
 
     customer_ref = invoice.get("CustomerRef") or {}
     customer_name = customer_ref.get("name", "")
-
+    
     # Extract P.O. Number custom field value from CustomField[]
     po_number = ""
     custom_fields = invoice.get("CustomField") or []
@@ -104,6 +104,9 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
                 po_number = cf.get("StringValue") or cf.get("value") or ""
                 break
 
+    sales_term_ref = invoice.get("SalesTermRef") or {}
+    sales_term_name = sales_term_ref.get("name", "")    
+    
     # keep the rest as you already had
     meta = invoice.get("MetaData") or {}
     lines = invoice.get("Line") or []
@@ -120,6 +123,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
             "TxnDate": txn_date,
             "CustomerName": customer_name,
             "P.O. Number": po_number,
+            "SalesTerm": sales_term_name,
             
             # Line identifiers / ordering
             "LineIndex": idx,
@@ -199,8 +203,8 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             "DocNumber",
             "TxnDate",
             "CustomerName",
-            "P.O. NumberId",
-            "SalesTermName",
+            "P.O. Number",
+            "SalesTerm",
         
             # rest of your line fields
             "LineIndex",
@@ -226,7 +230,7 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             row["Line_json"] = safe_json(r.get("Line_json"))
             row["Invoice_json"] = safe_json(r.get("Invoice_json"))
             #row["SalesTermRef"] = invoice.get("SalesTermRef")
-            row["SalesTermRef"] = safe_json(r.get("SalesTermRef"))
+            #row["SalesTermRef"] = safe_json(r.get("SalesTermRef"))
             writer.writerow(row)
 
         data = text_buf.getvalue().encode("utf-8-sig")
