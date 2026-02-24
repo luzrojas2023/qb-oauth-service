@@ -92,7 +92,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
     customer_name = customer_ref.get("name", "")
 
     # Extract P.O. Number custom field value from CustomField[]
-    po_number_id = ""
+    po_number = ""
     custom_fields = invoice.get("CustomField") or []
     if isinstance(custom_fields, list):
         for cf in custom_fields:
@@ -101,7 +101,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
             # QBO often stores the label in Name (or DefinitionId ties to config)
             if (cf.get("Name") or "").strip().lower() in ("p.o. number", "po number", "p.o. #", "po #"):
                 # Value can be in StringValue for text custom fields
-                po_number_id = cf.get("StringValue") or cf.get("value") or ""
+                po_number = cf.get("StringValue") or cf.get("value") or ""
                 break
 
     # keep the rest as you already had
@@ -115,11 +115,11 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
 
         row = {
             # Requested parent fields:
-            "Id": invoice_id,
+            "Invoice Id": invoice_id,
             "DocNumber": doc_number,
             "TxnDate": txn_date,
             "CustomerName": customer_name,
-            "P.O. NumberId": po_number_id,
+            "P.O. Number": po_number,
             
             # Line identifiers / ordering
             "LineIndex": idx,
