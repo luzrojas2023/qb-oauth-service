@@ -26,6 +26,30 @@ def ref_json(ref: dict | None) -> str:
     import json
     return json.dumps(ref, ensure_ascii=False) if isinstance(ref, dict) else ""
 
+def extract_work_order(description: str) -> str:
+    """
+    Extracts Work Order value from multi-line description.
+
+    Looks for: "IRT WO#:" and returns text after it up to end-of-line.
+    If not found, returns "".
+    """
+    if not description:
+        return ""
+
+    marker = "IRT WO#:"
+    idx = description.find(marker)
+    if idx == -1:
+        return ""
+
+    # Take everything after the marker
+    after = description[idx + len(marker):]
+
+    # If description is multi-line, take only the first line after the marker
+    # (work order is typically on the same line)
+    first_line = after.splitlines()[0] if after else ""
+
+    return first_line.strip()
+
 def qbo_query_all(
     realm_id: str,
     query: str,
@@ -133,6 +157,10 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
         unit_price = sales_item_line_detail.get("UnitPrice", "")
         qty = sales_item_line_detail.get("Qty", "")
 
+        # Extract WO # when Description has it
+        descr = line.get("Description", "") or ""
+        work_order = extract_work_order(descr)
+
         row = {
             # Requested parent fields:
             "Invoice Id": invoice_id,
@@ -149,7 +177,10 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
             # keep the rest of your fields...
             "DetailType": line.get("DetailType", ""),
             "Amount": line.get("Amount", ""),
-            "Description": line.get("Description", ""),
+            "Description": descr,
+
+            # Work Order number when existing in record
+            "Work Order": work_order,
 
             "Item": item_name,
             "Unit Price": unit_price,
@@ -233,6 +264,8 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             "DetailType",
             "Amount",
             "Description",
+
+            "Work Order",
 
             "Item",
             "Unit Price",
