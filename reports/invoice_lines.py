@@ -170,19 +170,19 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
 
         row = {
             # Requested parent fields:
-            "Invoice Id": invoice_id,
+            #"Invoice Id": invoice_id,
             "DocNumber": doc_number,
             "TxnDate": txn_date,
             "CustomerName": customer_name,
             "P.O. Number": po_number,
-            "SalesTerm": sales_term_name,
+            #"SalesTerm": sales_term_name,
             
             # Line identifiers / ordering
-            "LineIndex": idx,
-            "LineId": line.get("Id", ""),
+            #"LineIndex": idx,
+            #"LineId": line.get("Id", ""),
 
             # keep the rest of your fields...
-            "DetailType": line.get("DetailType", ""),
+            #"DetailType": line.get("DetailType", ""),
             "Amount": line.get("Amount", ""),
             "Description": descr,
 
@@ -195,8 +195,8 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
                           
             # keep your SalesItemLineDetail extraction, etc.
             # ...
-            "Line_json": line,
-            "Invoice_json": invoice,
+            #"Line_json": line,
+            #"Invoice_json": invoice,
         }
 
         rows.append(row)
@@ -258,17 +258,17 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
         # We'll keep key extracted columns + JSON blobs for the complex parts.
         fieldnames = [
             # requested invoice parent fields
-            "Invoice Id",
+            #"Invoice Id",
             "DocNumber",
             "TxnDate",
             "CustomerName",
             "P.O. Number",
-            "SalesTerm",
+            #"SalesTerm",
         
             # rest of your line fields
-            "LineIndex",
-            "LineId",
-            "DetailType",
+            #"LineIndex",
+            #"LineId",
+            #"DetailType",
             "Amount",
             "Description",
 
@@ -278,8 +278,8 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             "Unit Price",
             "Qty",
 
-            "Line_json",
-            "Invoice_json",
+            #"Line_json",
+            #"Invoice_json",
         ]
 
         text_buf = io.StringIO()
