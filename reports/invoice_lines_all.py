@@ -123,7 +123,12 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
         # Extract SalesItemLineDetail
         sales_item_line_detail = line.get("SalesItemLineDetail") or {}
         item_ref = sales_item_line_detail.get("ItemRef") or {}
-        item_name = item_ref.get("name", "")
+        item_name = item_ref.get("name", "") or ""
+        
+        # Remove leading "FAA Repair:" if present
+        prefix = "FAA Repair:"
+        if item_name.strip().startswith(prefix):
+            item_name = item_name.strip()[len(prefix):].strip()
         
         unit_price = sales_item_line_detail.get("UnitPrice", "")
         qty = sales_item_line_detail.get("Qty", "")
