@@ -116,6 +116,10 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
     for idx, line in enumerate(lines, start=1):
         # ... (no change to your line parsing)
 
+        # ONLY keep SalesItemLineDetail lines
+        if line.get("DetailType") != "SalesItemLineDetail":
+            continue
+
         # Extract SalesItemLineDetail
         sales_item_line_detail = line.get("SalesItemLineDetail") or {}
         item_ref = sales_item_line_detail.get("ItemRef") or {}
