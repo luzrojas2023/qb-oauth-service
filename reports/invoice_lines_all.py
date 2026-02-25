@@ -151,8 +151,15 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
         
         # Remove leading "FAA Repair:" if present
         prefix = "FAA Repair:"
-        if item_name.strip().startswith(prefix):
-            item_name = item_name.strip()[len(prefix):].strip()
+        clean_name = item_name.strip()
+        if clean_name.startswith(prefix):
+            item_name = clean_name[len(prefix):].strip()
+        else:
+            item_name = clean_name
+    
+        # Force large numeric-looking Item values to be treated as text in Excel
+        if item_name.isdigit() and len(item_name) >= 10:
+            item_name = f'="{item_name}"'
         
         unit_price = sales_item_line_detail.get("UnitPrice", "")
         qty = sales_item_line_detail.get("Qty", "")
