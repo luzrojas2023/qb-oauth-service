@@ -175,14 +175,11 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
             "TxnDate": txn_date,
             "CustomerName": customer_name,
             "P.O. Number": po_number,
-            #"SalesTerm": sales_term_name,
-            
+                        
             # Line identifiers / ordering
-            #"LineIndex": idx,
-            #"LineId": line.get("Id", ""),
+            "LineId": line.get("Id", ""),
 
             # keep the rest of your fields...
-            #"DetailType": line.get("DetailType", ""),
             "Amount": line.get("Amount", ""),
             "Description": descr,
 
@@ -192,11 +189,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
             "Item": item_name,
             "Unit Price": unit_price,
             "Qty": qty,
-                          
-            # keep your SalesItemLineDetail extraction, etc.
-            # ...
-            #"Line_json": line,
-            #"Invoice_json": invoice,
+           
         }
 
         rows.append(row)
@@ -263,12 +256,9 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             "TxnDate",
             "CustomerName",
             "P.O. Number",
-            #"SalesTerm",
-        
+                    
             # rest of your line fields
-            #"LineIndex",
-            #"LineId",
-            #"DetailType",
+            "LineId",
             "Amount",
             "Description",
 
@@ -278,8 +268,6 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             "Unit Price",
             "Qty",
 
-            #"Line_json",
-            #"Invoice_json",
         ]
 
         text_buf = io.StringIO()
