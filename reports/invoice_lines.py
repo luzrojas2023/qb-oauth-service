@@ -4,6 +4,7 @@ import csv
 import json
 import requests
 from typing import Any
+from calendar import monthrange
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -261,9 +262,7 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             "LineId",
             "Amount",
             "Description",
-
             "Work Order",
-
             "Item",
             "Unit Price",
             "Qty",
@@ -292,3 +291,99 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
         )
 
     return JSONResponse({"error": "invalid_format", "allowed": ["json", "csv"]}, status_code=400)
+
+
+@router.get("/month/{year}/{month}")
+def download_invoice_lines_for_month(
+    request: Request,
+    realmId: str,
+    year: int,
+    month: int,
+    format: str = "json",
+):
+    get_valid_access_token = request.app.state.get_valid_access_token
+    qbo_api_base = request.app.state.qbo_api_base
+
+    # 1) Get valid token
+    try:
+        access_token = get_valid_access_token(realmId)
+    except RuntimeError as e:
+        msg = str(e)
+        if msg.startswith("RECONNECT_REQUIRED"):
+            return JSONResponse(
+                {"error": "reconnect_required", "connect_url": "/connect", "message": msg},
+                status_code=401,
+            )
+        return JSONResponse({"error": "auth_failed", "message": msg}, status_code=500)
+
+    # Validate month
+    if month < 1 or month > 12:
+        return JSONResponse({"error": "invalid_month"}, status_code=400)
+
+    # 2) Build correct start/end dates for that month
+    last_day = monthrange(year, month)[1]
+    start_date = f"{year}-{month:02d}-01"
+    end_date = f"{year}-{month:02d}-{last_day:02d}"
+
+    # Same query style you're already using in year endpoint
+    q = (
+        "SELECT * FROM Invoice "
+        f"WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' "
+        "ORDER BY TxnDate DESC"
+    )
+
+    invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
+
+    # Flatten lines (same as your working year endpoint)
+    all_lines: list[dict] = []
+    for inv in invoices:
+        rows = flatten_invoice_lines(inv)
+        all_lines.extend(rows)
+
+    # Return JSON (default)
+    if format.lower() == "json":
+        buf = io.BytesIO()
+        buf.write(json.dumps(all_lines, indent=2, ensure_ascii=False, default=str).encode("utf-8"))
+        buf.seek(0)
+        filename = f"invoice_lines_{year}_{month:02d}_{realmId}.json"
+        return StreamingResponse(
+            buf,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    # CSV (same fieldnames as your year report)
+    if format.lower() == "csv":
+        fieldnames = [
+            "DocNumber",
+            "TxnDate",
+            "CustomerName",
+            "P.O. Number",
+            "LineId",
+            "Amount",
+            "Description",
+            "Work Order",
+            "Item",
+            "Unit Price",
+            "Qty",
+        ]
+
+        text_buf = io.StringIO()
+        writer = csv.DictWriter(text_buf, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+
+        for r in all_lines:
+            writer.writerow(r)
+
+        data = text_buf.getvalue().encode("utf-8-sig")
+        buf = io.BytesIO(data)
+        buf.seek(0)
+
+        filename = f"invoice_lines_{year}_{month:02d}_{realmId}.csv"
+        return StreamingResponse(
+            buf,
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    return JSONResponse({"error": "invalid_format"}, status_code=400)
