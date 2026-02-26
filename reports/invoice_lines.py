@@ -240,6 +240,9 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
         for r in rows:
             r["RealmId"] = realmId
         all_lines.extend(rows)
+    
+    # Sort by Invoice Id ASC (grouped naturally)
+    all_lines.sort(key=lambda r: r.get("Invoice Id", ""))
 
     # 4) Return JSON (default) or CSV
     if format.lower() == "json":
