@@ -251,7 +251,15 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             return int(v)
         except Exception:
             return 10**18  # push non-numeric/missing to end
-    
+
+    all_lines.sort(
+        key=lambda r: (
+            _parse_txn_date(r.get("TxnDate", "")),  # primary: date ASC
+            r.get("InvoiceId", ""),                 # secondary: group
+            _parse_line_id(r.get("LineId", "")),    # within group
+        )
+    )
+    """
     all_lines.sort(
         key=lambda r: (
             r.get("InvoiceId", ""),          # group key
@@ -259,7 +267,7 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             _parse_line_id(r.get("LineId", "")),     # within-group ordering (ASC)
         )
     )
-    
+    """
     # 4) Return JSON (default) or CSV
     if format.lower() == "json":
         buf = io.BytesIO()
