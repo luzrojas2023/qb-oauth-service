@@ -5,6 +5,7 @@ import json
 import requests
 from typing import Any
 from calendar import monthrange
+from datetime import date
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -171,7 +172,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
 
         row = {
             # Requested parent fields:
-            #"Invoice Id": invoice_id,
+            "InvoiceId": invoice_id,
             "DocNumber": doc_number,
             "TxnDate": txn_date,
             "CustomerName": customer_name,
@@ -234,6 +235,30 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
         for r in rows:
             r["RealmId"] = realmId
         all_lines.extend(rows)
+   
+    # Group ordering by Transaction Date
+    def _parse_txn_date(s: str):
+        # TxnDate format from QBO is usually YYYY-MM-DD
+        try:
+            return date.fromisoformat(s)
+        except Exception:
+            return date.min
+
+    #Withn
+    def _parse_line_id(v):
+        # LineId is often numeric string; sort numerically when possible
+        try:
+            return int(v)
+        except Exception:
+            return 10**18  # push non-numeric/missing to end
+    
+    all_lines.sort(
+        key=lambda r: (
+            r.get("InvoiceId", ""),          # group key
+            _parse_txn_date(r.get("TxnDate", "")),   # group ordering (ASC)
+            _parse_line_id(r.get("LineId", "")),     # within-group ordering (ASC)
+        )
+    )
     
     # 4) Return JSON (default) or CSV
     if format.lower() == "json":
@@ -252,7 +277,7 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
         # We'll keep key extracted columns + JSON blobs for the complex parts.
         fieldnames = [
             # requested invoice parent fields
-            #"Invoice Id",
+            #"InvoiceId",
             "DocNumber",
             "TxnDate",
             "CustomerName",
