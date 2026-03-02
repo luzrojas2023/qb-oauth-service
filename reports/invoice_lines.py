@@ -223,7 +223,7 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
     q = (
         "SELECT * FROM Invoice "
         f"WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' "
-        "ORDER BY TxnDate DESC"
+        "ORDER BY TxnDate ASC"
     )
     
     invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
@@ -236,6 +236,7 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             r["RealmId"] = realmId
         all_lines.extend(rows)
    
+    """
     # Group ordering by Transaction Date
     def _parse_txn_date(s: str):
         # TxnDate format from QBO is usually YYYY-MM-DD
@@ -251,7 +252,7 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             return int(v)
         except Exception:
             return 10**18  # push non-numeric/missing to end
-    """
+    
     all_lines.sort(
         key=lambda r: (
             _parse_txn_date(r.get("TxnDate", "")),  # primary: date ASC
@@ -362,7 +363,7 @@ def download_invoice_lines_for_month(
     q = (
         "SELECT * FROM Invoice "
         f"WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' "
-        "ORDER BY TxnDate DESC"
+        "ORDER BY TxnDate ASC"
     )
 
     invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
@@ -373,6 +374,7 @@ def download_invoice_lines_for_month(
         rows = flatten_invoice_lines(inv)
         all_lines.extend(rows)
 
+    """
     # Group ordering by Transaction Date
     def _parse_txn_date(s: str):
         # TxnDate format from QBO is usually YYYY-MM-DD
@@ -388,7 +390,7 @@ def download_invoice_lines_for_month(
             return int(v)
         except Exception:
             return 10**18  # push non-numeric/missing to end
-    """
+    
     all_lines.sort(
         key=lambda r: (
             _parse_txn_date(r.get("TxnDate", "")),  # primary: date ASC
