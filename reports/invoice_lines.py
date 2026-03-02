@@ -223,7 +223,7 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
     q = (
         "SELECT * FROM Invoice "
         f"WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' "
-        "ORDER BY TxnDate ASC"
+        "ORDER BY TxnDate ASC, Id ASC"
     )
     
     invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
@@ -236,39 +236,6 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             r["RealmId"] = realmId
         all_lines.extend(rows)
    
-    """
-    # Group ordering by Transaction Date
-    def _parse_txn_date(s: str):
-        # TxnDate format from QBO is usually YYYY-MM-DD
-        try:
-            return date.fromisoformat(s)
-        except Exception:
-            return date.min
-
-    #Within-group ordering
-    def _parse_line_id(v):
-        # LineId is often numeric string; sort numerically when possible
-        try:
-            return int(v)
-        except Exception:
-            return 10**18  # push non-numeric/missing to end
-    
-    all_lines.sort(
-        key=lambda r: (
-            _parse_txn_date(r.get("TxnDate", "")),  # primary: date ASC
-            r.get("InvoiceId", ""),                 # secondary: group
-            _parse_line_id(r.get("LineId", "")),    # within group
-        )
-    )
-    
-    all_lines.sort(
-        key=lambda r: (
-            r.get("InvoiceId", ""),          # group key
-            _parse_txn_date(r.get("TxnDate", "")),   # group ordering (ASC)
-            _parse_line_id(r.get("LineId", "")),     # within-group ordering (ASC)
-        )
-    )
-    """
     # 4) Return JSON (default) or CSV
     if format.lower() == "json":
         buf = io.BytesIO()
@@ -363,7 +330,7 @@ def download_invoice_lines_for_month(
     q = (
         "SELECT * FROM Invoice "
         f"WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' "
-        "ORDER BY TxnDate ASC"
+        "ORDER BY TxnDate ASC, Id ASC"
     )
 
     invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
@@ -374,39 +341,6 @@ def download_invoice_lines_for_month(
         rows = flatten_invoice_lines(inv)
         all_lines.extend(rows)
 
-    """
-    # Group ordering by Transaction Date
-    def _parse_txn_date(s: str):
-        # TxnDate format from QBO is usually YYYY-MM-DD
-        try:
-            return date.fromisoformat(s)
-        except Exception:
-            return date.min
-
-    #Within-group ordering
-    def _parse_line_id(v):
-        # LineId is often numeric string; sort numerically when possible
-        try:
-            return int(v)
-        except Exception:
-            return 10**18  # push non-numeric/missing to end
-    
-    all_lines.sort(
-        key=lambda r: (
-            _parse_txn_date(r.get("TxnDate", "")),  # primary: date ASC
-            r.get("InvoiceId", ""),                 # secondary: group
-            _parse_line_id(r.get("LineId", "")),    # within group
-        )
-    )
-    
-    all_lines.sort(
-        key=lambda r: (
-            r.get("InvoiceId", ""),          # group key
-            _parse_txn_date(r.get("TxnDate", "")),   # group ordering (ASC)
-            _parse_line_id(r.get("LineId", "")),     # within-group ordering (ASC)
-        )
-    )
-    """
     # Return JSON (default)
     if format.lower() == "json":
         buf = io.BytesIO()
