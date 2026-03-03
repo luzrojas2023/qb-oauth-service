@@ -28,6 +28,28 @@ def ref_json(ref: dict | None) -> str:
     import json
     return json.dumps(ref, ensure_ascii=False) if isinstance(ref, dict) else ""
 
+def qualifies_robert(customer_name: str, item_code: str) -> bool:
+    # Combo 1 you provided
+    if customer_name.strip().lower() == "air france":
+        return item_code in {"S906-70196-3", "362A6411P4"}
+    # TODO: add Robert combo #2 later
+    return False
+
+def qualifies_evert(customer_name: str, item_code: str) -> bool:
+    cn = (customer_name or "").lower()
+
+    # Evert customer substring list (includes KLM; overlap is fine)
+    keywords = ["ajw technique", "klm", "aar", "lufthansa", "csi", "austrian", "fokker", "ametek", "muirhead"]
+    if any(k in cn for k in keywords):
+        return True
+
+    # Skysmart special cases: for now, just include all Skysmart lines,
+    # OR restrict to certain items later (you can decide).
+    if "skysmart" in cn:
+        return True
+
+    return False
+
 def extract_work_order(description: str) -> str:
     """
     Extracts Work Order value from multi-line description.
@@ -116,6 +138,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
 
     customer_ref = invoice.get("CustomerRef") or {}
     customer_name = customer_ref.get("name", "")
+    customer_id = ustomer_ref.get("value", "")
     
     # Extract P.O. Number custom field value from CustomField[]
     po_number = ""
@@ -130,6 +153,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
                 po_number = cf.get("StringValue") or cf.get("value") or ""
                 break
 
+    # Extract Terms
     sales_term_ref = invoice.get("SalesTermRef") or {}
     sales_term_name = sales_term_ref.get("name", "")    
     
@@ -150,6 +174,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
         sales_item_line_detail = line.get("SalesItemLineDetail") or {}
         item_ref = sales_item_line_detail.get("ItemRef") or {}
         item_name = item_ref.get("name", "") or ""
+        item_id = item_ref.get("value", "")
         
         # Remove leading "FAA Repair:" if present
         prefix = "FAA Repair:"
@@ -175,6 +200,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
             "InvoiceId": invoice_id,
             "DocNumber": doc_number,
             "TxnDate": txn_date,
+            "CustomerId": customer_id,
             "CustomerName": customer_name,
             "P.O. Number": po_number,
                         
@@ -188,6 +214,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
             # Work Order number when existing in record
             "Work Order": work_order,
 
+            "ItemId": item_id,
             "Item": item_name,
             "Unit Price": unit_price,
             "Qty": qty,
