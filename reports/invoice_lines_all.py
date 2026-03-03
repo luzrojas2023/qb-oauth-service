@@ -87,7 +87,7 @@ def qbo_query_all(
             )
 
         payload = r.json() if r.content else {}
-        q = payload.get("QueryResponse", {})
+        payload.get("QueryResponse", {})
         batch = q.get("Invoice", []) or []
         results.extend(batch)
 
@@ -228,7 +228,7 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
     q = (
         "SELECT * FROM Invoice "
         f"WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' "
-        "ORDER BY TxnDate DESC"
+        "ORDER BY TxnDate ASC, Id ASC"
     )
     
     invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
