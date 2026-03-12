@@ -138,7 +138,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
 
     customer_ref = invoice.get("CustomerRef") or {}
     customer_name = customer_ref.get("name", "")
-    customer_id = ustomer_ref.get("value", "")
+    customer_id = customer_ref.get("value", "")
     
     # Extract P.O. Number custom field value from CustomField[]
     po_number = ""
