@@ -50,6 +50,18 @@ def extract_work_order(description: str) -> str:
 
     return first_line.strip()
 
+def build_invoice_query(start_date, end_date, customer_id=None):
+    query = (
+        f"SELECT * FROM Invoice "
+        f"WHERE TxnDate >= '{start_date}' "
+        f"AND TxnDate <= '{end_date}'"
+    )
+
+    if customer_id:
+        query += f" AND CustomerRef = '{str(customer_id).strip()}'"
+
+    return query
+
 def qbo_query_all(
     realm_id: str,
     query: str,
@@ -97,6 +109,18 @@ def qbo_query_all(
         start += page_size
 
     return results
+
+
+# Keep this safety filter
+def filter_invoices_by_customer(invoices, customer_id=None):
+    if not customer_id:
+        return invoices
+
+    cid = str(customer_id).strip()
+    return [
+        inv for inv in invoices
+        if str((inv.get("CustomerRef") or {}).get("value", "")).strip() == cid
+    ]
 
 
 def safe_json(val: Any) -> str:
