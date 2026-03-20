@@ -390,12 +390,12 @@ def download_invoice_lines_for_month(
     qbo_api_base = request.app.state.qbo_api_base
 
     if customer_id is not None:
-    customer_id = customer_id.strip()
-    if customer_id == "":
-        return JSONResponse(
-            {"error": "invalid_customer_id", "message": "customer_id cannot be empty"},
-            status_code=400,
-        )
+        customer_id = customer_id.strip()
+        if customer_id == "":
+            return JSONResponse(
+                {"error": "invalid_customer_id", "message": "customer_id cannot be empty"},
+                status_code=400,
+            )
 
     # 1) Get valid token
     try:
