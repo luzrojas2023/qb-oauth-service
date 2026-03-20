@@ -242,9 +242,23 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
 
 
 @router.get("/year/{year}")
-def download_invoice_lines_for_year(request: Request, realmId: str, year: int, format: str = "json"):
+def download_invoice_lines_for_year(
+    request: Request,
+    realmId: str,
+    year: int,
+    format: str = "json",
+    customer_id: str | None = None,
+):
     get_valid_access_token = request.app.state.get_valid_access_token
     qbo_api_base = request.app.state.qbo_api_base
+
+    if customer_id is not None:
+        customer_id = customer_id.strip()
+        if customer_id == "":
+            return JSONResponse(
+                {"error": "invalid_customer_id", "message": "customer_id cannot be empty"},
+                status_code=400,
+            )
 
     # 1) Get valid token (auto-refresh inside your existing helper)
     try:
@@ -258,17 +272,14 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
             )
         return JSONResponse({"error": "auth_failed", "message": msg}, status_code=500)
 
-    # 2) Query all invoices in the year, sorted by TxnDate desc
+    # 2) Query all invoices in the year, sorted by TxnDate asc, Id asc
     start_date = f"{year}-01-01"
     end_date = f"{year}-12-31"
 
-    q = (
-        "SELECT * FROM Invoice "
-        f"WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' "
-        "ORDER BY TxnDate ASC, Id ASC"
-    )
+    q = build_invoice_query(start_date, end_date, customer_id=customer_id)
     
     invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
+    invoices = safe_filter_invoices_by_customer(invoices, customer_id=customer_id)
 
     # 3) Flatten lines
     all_lines: list[dict] = []
@@ -283,7 +294,12 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
         buf = io.BytesIO()
         buf.write(json.dumps(all_lines, indent=2, ensure_ascii=False, default=str).encode("utf-8"))
         buf.seek(0)
-        filename = f"invoice_lines_all_{year}_{realmId}.json"
+
+        if customer_id:
+            filename = f"invoice_lines_{year}_{realmId}_customer_{customer_id}.json"
+        else:
+            filename = f"invoice_lines_{year}_{realmId}.json"
+        
         return StreamingResponse(
             buf,
             media_type="application/json",
@@ -333,7 +349,11 @@ def download_invoice_lines_for_year(request: Request, realmId: str, year: int, f
         buf = io.BytesIO(data)
         buf.seek(0)
 
-        filename = f"invoice_lines_all_{year}_{realmId}.csv"
+        if customer_id:
+            filename = f"invoice_lines_{year}_{realmId}_customer_{customer_id}.csv"
+        else:
+            filename = f"invoice_lines_{year}_{realmId}.csv"
+        
         return StreamingResponse(
             buf,
             media_type="text/csv",
