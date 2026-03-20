@@ -50,17 +50,21 @@ def extract_work_order(description: str) -> str:
 
     return first_line.strip()
 
-def build_invoice_query(start_date, end_date, customer_id=None):
+def build_invoice_query(start_date: str, end_date: str, customer_id: str | None = None) -> str:
     query = (
         f"SELECT * FROM Invoice "
         f"WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}'"
     )
 
-    if customer_id:
-        query += f" AND CustomerRef = '{str(customer_id).strip()}'"
+    if customer_id is not None and str(customer_id).strip():
+        safe_customer_id = str(customer_id).strip()
+        query += f" AND CustomerRef = '{safe_customer_id}'"
+
+    query += " ORDER BY TxnDate ASC, Id ASC"
 
     return query
+
 
 def qbo_query_all(
     realm_id: str,
@@ -111,16 +115,25 @@ def qbo_query_all(
     return results
 
 
-# Keep this safety filter
-def filter_invoices_by_customer(invoices, customer_id=None):
-    if not customer_id:
+def safe_filter_invoices_by_customer(invoices: list, customer_id: str | None = None) -> list:
+    """
+    Safety filter applied after QBO returns invoices.
+    Keeps all invoices if customer_id is not provided.
+    """
+    if customer_id is None or not str(customer_id).strip():
         return invoices
 
-    cid = str(customer_id).strip()
-    return [
-        inv for inv in invoices
-        if str((inv.get("CustomerRef") or {}).get("value", "")).strip() == cid
-    ]
+    target_customer_id = str(customer_id).strip()
+
+    filtered = []
+    for invoice in invoices:
+        customer_ref = invoice.get("CustomerRef") or {}
+        invoice_customer_id = str(customer_ref.get("value", "")).strip()
+
+        if invoice_customer_id == target_customer_id:
+            filtered.append(invoice)
+
+    return filtered
 
 
 def safe_json(val: Any) -> str:
