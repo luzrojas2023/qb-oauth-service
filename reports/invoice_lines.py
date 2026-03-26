@@ -572,3 +572,90 @@ def download_invoice_lines_for_month(
         )
 
     return JSONResponse({"error": "invalid_format"}, status_code=400)
+
+@router.get("/grouped/year/{year}")
+def download_invoice_lines_grouped_by_family_for_year(
+    request: Request,
+    realmId: str,
+    year: int,
+    customer_id: str | None = None,
+):
+    get_valid_access_token = request.app.state.get_valid_access_token
+    qbo_api_base = request.app.state.qbo_api_base
+
+    if customer_id is not None:
+        customer_id = customer_id.strip()
+        if customer_id == "":
+            return JSONResponse(
+                {"error": "invalid_customer_id", "message": "customer_id cannot be empty"},
+                status_code=400,
+            )
+
+    try:
+        access_token = get_valid_access_token(realmId)
+    except RuntimeError as e:
+        msg = str(e)
+        if msg.startswith("RECONNECT_REQUIRED"):
+            return JSONResponse(
+                {"error": "reconnect_required", "connect_url": "/connect", "message": msg},
+                status_code=401,
+            )
+        return JSONResponse({"error": "auth_failed", "message": msg}, status_code=500)
+
+    start_date = f"{year}-01-01"
+    end_date = f"{year}-12-31"
+
+    q = build_invoice_query(start_date, end_date, customer_id=customer_id)
+
+    invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
+    invoices = safe_filter_invoices_by_customer(invoices, customer_id=customer_id)
+
+    all_lines: list[dict] = []
+    for inv in invoices:
+        rows = flatten_invoice_lines(inv)
+        for r in rows:
+            r["RealmId"] = realmId
+        all_lines.extend(rows)
+
+    all_lines = attach_family_codes(request, all_lines)
+    grouped_rows = group_lines_by_family(all_lines)
+
+    customer_name = ""
+    if customer_id and all_lines:
+        customer_name = str(all_lines[0].get("CustomerName", "")).strip()
+
+    text_buf = io.StringIO()
+
+    if customer_id:
+        text_buf.write(f"{customer_name}\n")
+        text_buf.write(f"{year}\n\n")
+    else:
+        text_buf.write(f"{year}\n\n")
+
+    fieldnames = [
+        "FamilyCode",
+        "Item",
+        "TotalQty",
+        "TotalSales",
+    ]
+
+    writer = csv.DictWriter(text_buf, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+
+    for r in grouped_rows:
+        writer.writerow(r)
+
+    data = text_buf.getvalue().encode("utf-8-sig")
+    buf = io.BytesIO(data)
+    buf.seek(0)
+
+    if customer_id:
+        filename = f"invoice_lines_grouped_family_{year}_{realmId}_customer_{customer_id}.csv"
+    else:
+        filename = f"invoice_lines_grouped_family_{year}_{realmId}.csv"
+
+    return StreamingResponse(
+        buf,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
