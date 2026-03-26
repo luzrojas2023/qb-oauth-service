@@ -60,6 +60,39 @@ def to_decimal(val: Any) -> Decimal:
     except (InvalidOperation, ValueError, TypeError):
         return Decimal("0")
 
+def fetch_item_family_map(request: Request, item_ids: list[str]) -> dict[str, str]:
+    """
+    Looks up family_code in Supabase item_catalog using qbo_item_id.
+    """
+    supabase = request.app.state.supabase
+
+    clean_ids = sorted({str(x).strip() for x in item_ids if str(x).strip()})
+    if not clean_ids:
+        return {}
+
+    family_map: dict[str, str] = {}
+
+    chunk_size = 500
+    for i in range(0, len(clean_ids), chunk_size):
+        chunk = clean_ids[i:i + chunk_size]
+
+        resp = (
+            supabase
+            .table("item_catalog")
+            .select("qbo_item_id,family_code")
+            .in_("qbo_item_id", chunk)
+            .execute()
+        )
+
+        rows = resp.data or []
+        for r in rows:
+            item_id = str(r.get("qbo_item_id", "")).strip()
+            family_code = (r.get("family_code") or "").strip()
+            if item_id:
+                family_map[item_id] = family_code or "UNASSIGNED"
+
+    return family_map
+
 def build_invoice_query(start_date: str, end_date: str, customer_id: str | None = None) -> str:
     query = (
         f"SELECT * FROM Invoice "
