@@ -118,7 +118,12 @@ def fetch_item_family_map(request: Request, item_ids: list[str]) -> dict[str, st
     return family_map
 
 def attach_family_codes(request: Request, all_lines: list[dict]) -> list[dict]:
-    item_ids = [str(r.get("ItemId", "")).strip() for r in all_lines if str(r.get("ItemId", "")).strip()]
+    item_ids = [
+        str(r.get("ItemId", "")).strip()
+        for r in all_lines
+        if str(r.get("ItemId", "")).strip()
+    ]
+
     family_map = fetch_item_family_map(request, item_ids)
 
     for r in all_lines:
@@ -126,6 +131,35 @@ def attach_family_codes(request: Request, all_lines: list[dict]) -> list[dict]:
         r["FamilyCode"] = family_map.get(item_id, "UNASSIGNED")
 
     return all_lines
+
+def group_lines_by_family(all_lines: list[dict]) -> list[dict]:
+    grouped: dict[str, dict] = {}
+
+    for r in all_lines:
+        family_code = str(r.get("FamilyCode", "UNASSIGNED")).strip() or "UNASSIGNED"
+
+        if family_code not in grouped:
+            grouped[family_code] = {
+                "FamilyCode": family_code,
+                "Item": str(r.get("Item", "")).strip(),
+                "TotalQty": Decimal("0"),
+                "TotalSales": Decimal("0"),
+            }
+
+        grouped[family_code]["TotalQty"] += to_decimal(r.get("Qty"))
+        grouped[family_code]["TotalSales"] += to_decimal(r.get("Amount"))
+
+    results: list[dict] = []
+    for g in grouped.values():
+        results.append({
+            "FamilyCode": g["FamilyCode"],
+            "Item": g["Item"],
+            "TotalQty": float(g["TotalQty"]),
+            "TotalSales": float(g["TotalSales"]),
+        })
+
+    results.sort(key=lambda x: (x["FamilyCode"], x["Item"]))
+    return results
 
 def build_invoice_query(start_date: str, end_date: str, customer_id: str | None = None) -> str:
     query = (
