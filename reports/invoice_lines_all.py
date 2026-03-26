@@ -4,6 +4,8 @@ import csv
 import json
 import requests
 from typing import Any
+from decimal import Decimal, InvalidOperation
+from collections import defaultdict
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -49,6 +51,14 @@ def extract_work_order(description: str) -> str:
     first_line = after.splitlines()[0] if after else ""
 
     return first_line.strip()
+
+def to_decimal(val: Any) -> Decimal:
+    if val in (None, "", " "):
+        return Decimal("0")
+    try:
+        return Decimal(str(val))
+    except (InvalidOperation, ValueError, TypeError):
+        return Decimal("0")
 
 def build_invoice_query(start_date: str, end_date: str, customer_id: str | None = None) -> str:
     query = (
