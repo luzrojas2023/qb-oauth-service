@@ -117,6 +117,16 @@ def fetch_item_family_map(request: Request, item_ids: list[str]) -> dict[str, st
 
     return family_map
 
+def attach_family_codes(request: Request, all_lines: list[dict]) -> list[dict]:
+    item_ids = [str(r.get("ItemId", "")).strip() for r in all_lines if str(r.get("ItemId", "")).strip()]
+    family_map = fetch_item_family_map(request, item_ids)
+
+    for r in all_lines:
+        item_id = str(r.get("ItemId", "")).strip()
+        r["FamilyCode"] = family_map.get(item_id, "UNASSIGNED")
+
+    return all_lines
+
 def build_invoice_query(start_date: str, end_date: str, customer_id: str | None = None) -> str:
     query = (
         f"SELECT * FROM Invoice "
