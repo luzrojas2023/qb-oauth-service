@@ -8,7 +8,7 @@ from calendar import monthrange
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from collections import defaultdict
-
+from db import get_conn
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 
@@ -86,10 +86,9 @@ def to_decimal(val: Any) -> Decimal:
 
 def fetch_item_family_map(request: Request, item_ids: list[str]) -> dict[str, str]:
     """
-    Looks up family_code in Supabase item_catalog using qbo_item_id.
+    Looks up family_code in item_catalog using qbo_item_id
+    through the existing Postgres connection.
     """
-    supabase = request.app.state.supabase
-
     clean_ids = sorted({str(x).strip() for x in item_ids if str(x).strip()})
     if not clean_ids:
         return {}
@@ -100,20 +99,23 @@ def fetch_item_family_map(request: Request, item_ids: list[str]) -> dict[str, st
     for i in range(0, len(clean_ids), chunk_size):
         chunk = clean_ids[i:i + chunk_size]
 
-        resp = (
-            supabase
-            .table("item_catalog")
-            .select("qbo_item_id,family_code")
-            .in_("qbo_item_id", chunk)
-            .execute()
-        )
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select qbo_item_id, family_code
+                    from item_catalog
+                    where qbo_item_id = any(%s)
+                    """,
+                    (chunk,)
+                )
+                rows = cur.fetchall() or []
 
-        rows = resp.data or []
-        for r in rows:
-            item_id = str(r.get("qbo_item_id", "")).strip()
-            family_code = (r.get("family_code") or "").strip()
-            if item_id:
-                family_map[item_id] = family_code or "UNASSIGNED"
+                for r in rows:
+                    item_id = str(r.get("qbo_item_id", "")).strip()
+                    family_code = (r.get("family_code") or "").strip()
+                    if item_id:
+                        family_map[item_id] = family_code or "UNASSIGNED"
 
     return family_map
 
