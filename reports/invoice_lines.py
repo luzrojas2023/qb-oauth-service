@@ -334,6 +334,10 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
         unit_price = sales_item_line_detail.get("UnitPrice", "")
         qty = sales_item_line_detail.get("Qty", "")
 
+        line_amount = line.get("Amount", "")
+        if to_decimal(line_amount) == 0:
+            continue
+
         # Extract WO # when Description has it
         descr = line.get("Description", "") or ""
         work_order = extract_work_order(descr)
@@ -351,7 +355,7 @@ def flatten_invoice_lines(invoice: dict) -> list[dict]:
             "LineId": line.get("Id", ""),
 
             # keep the rest of your fields...
-            "Amount": line.get("Amount", ""),
+            "Amount": line_amount,
             "Description": descr,
 
             # Work Order number when existing in record
