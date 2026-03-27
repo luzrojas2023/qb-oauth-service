@@ -795,3 +795,115 @@ def download_invoice_lines_grouped_by_family_for_month(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+@router.get("/grouped/quarter/{year}/{quarter}")
+def download_invoice_lines_grouped_by_family_for_quarter(
+    request: Request,
+    realmId: str,
+    year: int,
+    quarter: int,
+    customer_id: str | None = None,
+):
+    get_valid_access_token = request.app.state.get_valid_access_token
+    qbo_api_base = request.app.state.qbo_api_base
+
+    if customer_id is not None:
+        customer_id = customer_id.strip()
+        if customer_id == "":
+            return JSONResponse(
+                {"error": "invalid_customer_id", "message": "customer_id cannot be empty"},
+                status_code=400,
+            )
+
+    try:
+        access_token = get_valid_access_token(realmId)
+    except RuntimeError as e:
+        msg = str(e)
+        if msg.startswith("RECONNECT_REQUIRED"):
+            return JSONResponse(
+                {"error": "reconnect_required", "connect_url": "/connect", "message": msg},
+                status_code=401,
+            )
+        return JSONResponse({"error": "auth_failed", "message": msg}, status_code=500)
+
+    if quarter not in (1, 2, 3, 4):
+        return JSONResponse({"error": "invalid_quarter", "allowed": [1, 2, 3, 4]}, status_code=400)
+
+    if quarter == 1:
+        start_date = f"{year}-01-01"
+        end_date = f"{year}-03-31"
+    elif quarter == 2:
+        start_date = f"{year}-04-01"
+        end_date = f"{year}-06-30"
+    elif quarter == 3:
+        start_date = f"{year}-07-01"
+        end_date = f"{year}-09-30"
+    else:
+        start_date = f"{year}-10-01"
+        end_date = f"{year}-12-31"
+
+    q = build_invoice_query(start_date, end_date, customer_id=customer_id)
+
+    invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
+    invoices = safe_filter_invoices_by_customer(invoices, customer_id=customer_id)
+
+    all_lines: list[dict] = []
+    for inv in invoices:
+        rows = flatten_invoice_lines(inv)
+        for r in rows:
+            r["RealmId"] = realmId
+        all_lines.extend(rows)
+
+    all_lines = attach_family_codes(request, all_lines)
+    grouped_rows = group_lines_by_family(all_lines, include_customer=(customer_id is None))
+
+    customer_name = ""
+    if customer_id and all_lines:
+        customer_name = str(all_lines[0].get("CustomerName", "")).strip()
+
+    period_label = f"{year} Q{quarter}"
+
+    text_buf = io.StringIO()
+
+    if customer_id:
+        text_buf.write(f"{customer_name}\n")
+        text_buf.write(f"{period_label}\n\n")
+    else:
+        text_buf.write(f"{period_label}\n\n")
+
+    if customer_id:
+        fieldnames = [
+            "FamilyCode",
+            "Item",
+            "TotalQty",
+            "TotalSales",
+        ]
+    else:
+        fieldnames = [
+            "CustomerName",
+            "FamilyCode",
+            "Item",
+            "TotalQty",
+            "TotalSales",
+        ]
+
+    writer = csv.DictWriter(text_buf, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+
+    for r in grouped_rows:
+        writer.writerow(r)
+
+    data = text_buf.getvalue().encode("utf-8-sig")
+    buf = io.BytesIO(data)
+    buf.seek(0)
+
+    if customer_id:
+        filename = f"invoice_lines_grouped_family_{year}_Q{quarter}_{realmId}_customer_{customer_id}.csv"
+    else:
+        filename = f"invoice_lines_grouped_family_{year}_Q{quarter}_{realmId}.csv"
+
+    return StreamingResponse(
+        buf,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
