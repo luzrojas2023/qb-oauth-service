@@ -134,33 +134,51 @@ def attach_family_codes(request: Request, all_lines: list[dict]) -> list[dict]:
 
     return all_lines
 
-def group_lines_by_family(all_lines: list[dict]) -> list[dict]:
-    grouped: dict[str, dict] = {}
+def group_lines_by_family(all_lines: list[dict], include_customer: bool = False) -> list[dict]:
+    grouped: dict[tuple, dict] = {}
 
     for r in all_lines:
+        customer_name = str(r.get("CustomerName", "")).strip()
         family_code = str(r.get("FamilyCode", "UNASSIGNED")).strip() or "UNASSIGNED"
 
-        if family_code not in grouped:
-            grouped[family_code] = {
+        # When include_customer=True, grouping happens within each customer
+        key = (customer_name, family_code) if include_customer else (family_code,)
+
+        if key not in grouped:
+            grouped[key] = {
+                "CustomerName": customer_name,
                 "FamilyCode": family_code,
                 "Item": str(r.get("Item", "")).strip(),
                 "TotalQty": Decimal("0"),
                 "TotalSales": Decimal("0"),
             }
 
-        grouped[family_code]["TotalQty"] += to_decimal(r.get("Qty"))
-        grouped[family_code]["TotalSales"] += to_decimal(r.get("Amount"))
+        grouped[key]["TotalQty"] += to_decimal(r.get("Qty"))
+        grouped[key]["TotalSales"] += to_decimal(r.get("Amount"))
 
     results: list[dict] = []
     for g in grouped.values():
-        results.append({
-            "FamilyCode": g["FamilyCode"],
-            "Item": g["Item"],
-            "TotalQty": float(g["TotalQty"]),
-            "TotalSales": float(g["TotalSales"]),
-        })
+        if include_customer:
+            results.append({
+                "CustomerName": g["CustomerName"],
+                "FamilyCode": g["FamilyCode"],
+                "Item": g["Item"],
+                "TotalQty": float(g["TotalQty"]),
+                "TotalSales": float(g["TotalSales"]),
+            })
+        else:
+            results.append({
+                "FamilyCode": g["FamilyCode"],
+                "Item": g["Item"],
+                "TotalQty": float(g["TotalQty"]),
+                "TotalSales": float(g["TotalSales"]),
+            })
 
-    results.sort(key=lambda x: (x["FamilyCode"], x["Item"]))
+    if include_customer:
+        results.sort(key=lambda x: (x["CustomerName"], x["FamilyCode"], x["Item"]))
+    else:
+        results.sort(key=lambda x: (x["FamilyCode"], x["Item"]))
+
     return results
 
 def build_invoice_query(start_date: str, end_date: str, customer_id: str | None = None) -> str:
@@ -620,8 +638,8 @@ def download_invoice_lines_grouped_by_family_for_year(
         all_lines.extend(rows)
 
     all_lines = attach_family_codes(request, all_lines)
-    grouped_rows = group_lines_by_family(all_lines)
-
+    grouped_rows = group_lines_by_family(all_lines, include_customer=(customer_id is None))
+    
     customer_name = ""
     if customer_id and all_lines:
         customer_name = str(all_lines[0].get("CustomerName", "")).strip()
@@ -634,12 +652,21 @@ def download_invoice_lines_grouped_by_family_for_year(
     else:
         text_buf.write(f"{year}\n\n")
 
-    fieldnames = [
-        "FamilyCode",
-        "Item",
-        "TotalQty",
-        "TotalSales",
-    ]
+    if customer_id:
+        fieldnames = [
+            "FamilyCode",
+            "Item",
+            "TotalQty",
+            "TotalSales",
+        ]
+    else:
+        fieldnames = [
+            "CustomerName",
+            "FamilyCode",
+            "Item",
+            "TotalQty",
+            "TotalSales",
+        ]
 
     writer = csv.DictWriter(text_buf, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
@@ -712,8 +739,8 @@ def download_invoice_lines_grouped_by_family_for_month(
         all_lines.extend(rows)
 
     all_lines = attach_family_codes(request, all_lines)
-    grouped_rows = group_lines_by_family(all_lines)
-
+    grouped_rows = group_lines_by_family(all_lines, include_customer=(customer_id is None))
+    
     customer_name = ""
     if customer_id and all_lines:
         customer_name = str(all_lines[0].get("CustomerName", "")).strip()
@@ -728,12 +755,21 @@ def download_invoice_lines_grouped_by_family_for_month(
     else:
         text_buf.write(f"{period_label}\n\n")
 
-    fieldnames = [
-        "FamilyCode",
-        "Item",
-        "TotalQty",
-        "TotalSales",
-    ]
+    if customer_id:
+        fieldnames = [
+            "FamilyCode",
+            "Item",
+            "TotalQty",
+            "TotalSales",
+        ]
+    else:
+        fieldnames = [
+            "CustomerName",
+            "FamilyCode",
+            "Item",
+            "TotalQty",
+            "TotalSales",
+        ]
 
     writer = csv.DictWriter(text_buf, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
