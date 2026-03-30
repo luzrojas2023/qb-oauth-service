@@ -1168,33 +1168,33 @@ def download_invoice_lines_with_family_for_year(
     # CSV output
     if customer_id:
         fieldnames = [
-                "DocNumber",
-                "TxnDate",
-                "P.O. Number",
-                "LineId",
-                "Amount",
-                "Description",
-                "Work Order",
-                "Item",
-                "FamilyCode",   # 👈 NEW FIELD
-                "Unit Price",
-                "Qty",
-            ]
+            "DocNumber",
+            "TxnDate",
+            "P.O. Number",
+            "LineId",
+            "Amount",
+            "Description",
+            "Work Order",
+            "Item",
+            "FamilyCode",   # 👈 NEW FIELD
+            "Unit Price",
+            "Qty",
+        ]
     else:
         fieldnames = [
-                "DocNumber",
-                "TxnDate",
-                "CustomerName",
-                "P.O. Number",
-                "LineId",
-                "Amount",
-                "Description",
-                "Work Order",
-                "Item",
-                "FamilyCode",   # 👈 NEW FIELD
-                "Unit Price",
-                "Qty",
-            ]
+            "DocNumber",
+            "TxnDate",
+            "CustomerName",
+            "P.O. Number",
+            "LineId",
+            "Amount",
+            "Description",
+            "Work Order",
+            "Item",
+            "FamilyCode",   # 👈 NEW FIELD
+            "Unit Price",
+            "Qty",
+        ]
 
     text_buf = io.StringIO()
     writer = csv.DictWriter(text_buf, fieldnames=fieldnames, extrasaction="ignore")
