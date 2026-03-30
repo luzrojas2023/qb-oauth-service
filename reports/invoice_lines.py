@@ -1069,12 +1069,14 @@ def download_invoice_lines_with_family_for_year(
     # 🔥 attach family (NO grouping)
     all_lines = attach_family_codes(request, all_lines)
 
+    '''
     all_lines.sort(key=lambda x: (
     str(x.get("CustomerName", "")) if customer_id is None else "",
     str(x.get("FamilyCode", "")),
     str(x.get("Item", "")),
     str(x.get("TxnDate", "")),
-))
+    ))
+    '''
 
     # CSV output
     fieldnames = [
@@ -1165,12 +1167,14 @@ def download_invoice_lines_with_family_for_month(
 
     all_lines = attach_family_codes(request, all_lines)
 
+    '''
     all_lines.sort(key=lambda x: (
         str(x.get("CustomerName", "")) if customer_id is None else "",
         str(x.get("FamilyCode", "")),
         str(x.get("Item", "")),
         str(x.get("TxnDate", "")),
     ))
+    '''
 
     fieldnames = [
         "DocNumber",
@@ -1269,12 +1273,14 @@ def download_invoice_lines_with_family_for_quarter(
 
     all_lines = attach_family_codes(request, all_lines)
 
+    '''
     all_lines.sort(key=lambda x: (
         str(x.get("CustomerName", "")) if customer_id is None else "",
         str(x.get("FamilyCode", "")),
         str(x.get("Item", "")),
         str(x.get("TxnDate", "")),
     ))
+    '''
 
     fieldnames = [
         "DocNumber",
