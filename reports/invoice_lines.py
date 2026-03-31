@@ -1178,30 +1178,28 @@ def download_invoice_lines_with_family_for_year(
     
     if customer_id:
         fieldnames = [
+            "FamilyCode",   # 👈 NEW FIELD
             "DocNumber",
             "TxnDate",
             "P.O. Number",
-            "LineId",
             "Amount",
             "Description",
             "Work Order",
             "Item",
-            "FamilyCode",   # 👈 NEW FIELD
             "Unit Price",
             "Qty",
         ]
     else:
         fieldnames = [
+            "FamilyCode",   # 👈 NEW FIELD
             "DocNumber",
             "TxnDate",
             "CustomerName",
             "P.O. Number",
-            "LineId",
             "Amount",
             "Description",
             "Work Order",
             "Item",
-            "FamilyCode",   # 👈 NEW FIELD
             "Unit Price",
             "Qty",
         ]
@@ -1300,30 +1298,28 @@ def download_invoice_lines_with_family_for_month(
     
     if customer_id:
         fieldnames = [
+            "FamilyCode",
             "DocNumber",
             "TxnDate",
             "P.O. Number",
-            "LineId",
             "Amount",
             "Description",
             "Work Order",
             "Item",
-            "FamilyCode",
             "Unit Price",
             "Qty",
         ]
     else:
         fieldnames = [
+            "FamilyCode",
             "DocNumber",
             "TxnDate",
             "CustomerName",
             "P.O. Number",
-            "LineId",
             "Amount",
             "Description",
             "Work Order",
             "Item",
-            "FamilyCode",
             "Unit Price",
             "Qty",
         ]        
@@ -1432,30 +1428,28 @@ def download_invoice_lines_with_family_for_quarter(
     
     if customer_id:
         fieldnames = [
+            "FamilyCode",
             "DocNumber",
             "TxnDate",
             "P.O. Number",
-            "LineId",
             "Amount",
             "Description",
             "Work Order",
             "Item",
-            "FamilyCode",
             "Unit Price",
             "Qty",
         ]
     else:
         fieldnames = [
+            "FamilyCode",
             "DocNumber",
             "TxnDate",
             "CustomerName",
             "P.O. Number",
-            "LineId",
             "Amount",
             "Description",
             "Work Order",
             "Item",
-            "FamilyCode",
             "Unit Price",
             "Qty",
         ]        
