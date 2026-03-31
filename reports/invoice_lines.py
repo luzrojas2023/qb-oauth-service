@@ -1724,19 +1724,25 @@ def download_invoice_lines_excel_for_month(
         freeze_header_row(ws_detail)
         autosize_worksheet_columns(ws_detail)
     else:
-        from collections import defaultdict
         by_customer = defaultdict(list)
+    
         for r in all_lines:
             name = (r.get("CustomerName") or "UNKNOWN")[:31]
             by_customer[name].append(r)
-
+    
         for customer_name, rows in by_customer.items():
             ws = wb.create_sheet(title=customer_name)
-            if rows:
-                headers = list(rows[0].keys())
+    
+            detail_rows = [detail_row_for_excel(r, include_customer=False) for r in rows]
+    
+            if detail_rows:
+                headers = list(detail_rows[0].keys())
                 ws.append(headers)
-                for r in rows:
-                    ws.append([r.get(h, "") for h in headers])
+                for row in detail_rows:
+                    ws.append([row.get(h, "") for h in headers])
+    
+            freeze_header_row(ws)
+            autosize_worksheet_columns(ws)
 
     buf = io.BytesIO()
     wb.save(buf)
