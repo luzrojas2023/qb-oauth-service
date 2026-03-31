@@ -30,6 +30,41 @@ def ref_json(ref: dict | None) -> str:
     import json
     return json.dumps(ref, ensure_ascii=False) if isinstance(ref, dict) else ""
 
+# Excel Helpers
+def freeze_header_row(ws):
+    ws.freeze_panes = "A2"
+
+def autosize_worksheet_columns(ws):
+    for col_cells in ws.columns:
+        max_length = 0
+        col_letter = col_cells[0].column_letter
+
+        for cell in col_cells:
+            value = "" if cell.value is None else str(cell.value)
+            if len(value) > max_length:
+                max_length = len(value)
+
+        ws.column_dimensions[col_letter].width = min(max_length + 2, 60)
+
+def detail_row_for_excel(r: dict, include_customer: bool) -> dict:
+    row = {
+        "FamilyCode": r.get("FamilyCode", ""),
+        "DocNumber": r.get("DocNumber", ""),
+        "TxnDate": r.get("TxnDate", ""),
+        "P.O. Number": r.get("P.O. Number", ""),
+        "Amount": r.get("Amount", ""),
+        "Description": r.get("Description", ""),
+        "Work Order": r.get("Work Order", ""),
+        "Item": r.get("Item", ""),
+        "Unit Price": r.get("Unit Price", ""),
+        "Qty": r.get("Qty", ""),
+    }
+
+    if include_customer:
+        row["CustomerName"] = r.get("CustomerName", "")
+
+    return row
+
 def qualifies_robert(customer_name: str, item_code: str) -> bool:
     # Combo 1 you provided
     if customer_name.strip().lower() == "air france":
@@ -1545,31 +1580,44 @@ def download_invoice_lines_excel_for_year(
         ws_summary.append(headers)
         for row in grouped_rows:
             ws_summary.append([row.get(h, "") for h in headers])
+    
+    freeze_header_row(ws_summary)
+    autosize_worksheet_columns(ws_summary)
 
     # --- Detail sheets ---
     if customer_id:
         ws_detail = wb.create_sheet(title="Detail")
-
-        if all_lines:
-            headers = list(all_lines[0].keys())
+    
+        detail_rows = [detail_row_for_excel(r, include_customer=False) for r in all_lines]
+    
+        if detail_rows:
+            headers = list(detail_rows[0].keys())
             ws_detail.append(headers)
-            for r in all_lines:
-                ws_detail.append([r.get(h, "") for h in headers])
+            for row in detail_rows:
+                ws_detail.append([row.get(h, "") for h in headers])
+    
+        freeze_header_row(ws_detail)
+        autosize_worksheet_columns(ws_detail)
     else:
         by_customer = defaultdict(list)
-
+    
         for r in all_lines:
             name = (r.get("CustomerName") or "UNKNOWN")[:31]
             by_customer[name].append(r)
-
+    
         for customer_name, rows in by_customer.items():
             ws = wb.create_sheet(title=customer_name)
-
-            if rows:
-                headers = list(rows[0].keys())
+    
+            detail_rows = [detail_row_for_excel(r, include_customer=False) for r in rows]
+    
+            if detail_rows:
+                headers = list(detail_rows[0].keys())
                 ws.append(headers)
-                for r in rows:
-                    ws.append([r.get(h, "") for h in headers])
+                for row in detail_rows:
+                    ws.append([row.get(h, "") for h in headers])
+    
+            freeze_header_row(ws)
+            autosize_worksheet_columns(ws)
 
     # Save file
     buf = io.BytesIO()
@@ -1658,14 +1706,23 @@ def download_invoice_lines_excel_for_month(
         ws_summary.append(headers)
         for row in grouped_rows:
             ws_summary.append([row.get(h, "") for h in headers])
+    
+    freeze_header_row(ws_summary)
+    autosize_worksheet_columns(ws_summary)    
 
     if customer_id:
         ws_detail = wb.create_sheet(title="Detail")
-        if all_lines:
-            headers = list(all_lines[0].keys())
+    
+        detail_rows = [detail_row_for_excel(r, include_customer=False) for r in all_lines]
+    
+        if detail_rows:
+            headers = list(detail_rows[0].keys())
             ws_detail.append(headers)
-            for r in all_lines:
-                ws_detail.append([r.get(h, "") for h in headers])
+            for row in detail_rows:
+                ws_detail.append([row.get(h, "") for h in headers])
+    
+        freeze_header_row(ws_detail)
+        autosize_worksheet_columns(ws_detail)
     else:
         from collections import defaultdict
         by_customer = defaultdict(list)
@@ -1777,27 +1834,43 @@ def download_invoice_lines_excel_for_quarter(
         ws_summary.append(headers)
         for row in grouped_rows:
             ws_summary.append([row.get(h, "") for h in headers])
+    
+    freeze_header_row(ws_summary)
+    autosize_worksheet_columns(ws_summary)
 
     if customer_id:
         ws_detail = wb.create_sheet(title="Detail")
-        if all_lines:
-            headers = list(all_lines[0].keys())
+    
+        detail_rows = [detail_row_for_excel(r, include_customer=False) for r in all_lines]
+    
+        if detail_rows:
+            headers = list(detail_rows[0].keys())
             ws_detail.append(headers)
-            for r in all_lines:
-                ws_detail.append([r.get(h, "") for h in headers])
+            for row in detail_rows:
+                ws_detail.append([row.get(h, "") for h in headers])
+    
+        freeze_header_row(ws_detail)
+        autosize_worksheet_columns(ws_detail)
     else:
         by_customer = defaultdict(list)
+    
         for r in all_lines:
             name = (r.get("CustomerName") or "UNKNOWN")[:31]
             by_customer[name].append(r)
-
+    
         for customer_name, rows in by_customer.items():
             ws = wb.create_sheet(title=customer_name)
-            if rows:
-                headers = list(rows[0].keys())
+    
+            detail_rows = [detail_row_for_excel(r, include_customer=False) for r in rows]
+    
+            if detail_rows:
+                headers = list(detail_rows[0].keys())
                 ws.append(headers)
-                for r in rows:
-                    ws.append([r.get(h, "") for h in headers])
+                for row in detail_rows:
+                    ws.append([row.get(h, "") for h in headers])
+    
+            freeze_header_row(ws)
+            autosize_worksheet_columns(ws)
 
     buf = io.BytesIO()
     wb.save(buf)
