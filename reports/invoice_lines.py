@@ -1475,3 +1475,114 @@ def download_invoice_lines_with_family_for_quarter(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+    @router.get("/excel/year/{year}")
+    def download_invoice_lines_excel_for_year(
+        request: Request,
+        realmId: str,
+        year: int,
+        customer_id: str | None = None,
+    ):
+        from openpyxl import Workbook
+        from collections import defaultdict
+    
+        get_valid_access_token = request.app.state.get_valid_access_token
+        qbo_api_base = request.app.state.qbo_api_base
+    
+        if customer_id is not None:
+            customer_id = customer_id.strip()
+            if customer_id == "":
+                return JSONResponse(
+                    {"error": "invalid_customer_id", "message": "customer_id cannot be empty"},
+                    status_code=400,
+                )
+    
+        try:
+            access_token = get_valid_access_token(realmId)
+        except RuntimeError as e:
+            msg = str(e)
+            if msg.startswith("RECONNECT_REQUIRED"):
+                return JSONResponse(
+                    {"error": "reconnect_required", "connect_url": "/connect", "message": msg},
+                    status_code=401,
+                )
+            return JSONResponse({"error": "auth_failed", "message": msg}, status_code=500)
+    
+        start_date = f"{year}-01-01"
+        end_date = f"{year}-12-31"
+    
+        q = build_invoice_query(start_date, end_date, customer_id=customer_id)
+    
+        invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
+        invoices = safe_filter_invoices_by_customer(invoices, customer_id=customer_id)
+    
+        all_lines: list[dict] = []
+        for inv in invoices:
+            rows = flatten_invoice_lines(inv)
+            for r in rows:
+                r["RealmId"] = realmId
+            all_lines.extend(rows)
+    
+        all_lines = attach_family_codes(request, all_lines)
+    
+        # Sorting
+        all_lines.sort(key=lambda x: (
+            str(x.get("CustomerName", "")) if customer_id is None else "",
+            str(x.get("FamilyCode", "")),
+            str(x.get("TxnDate", "")),
+        ))
+    
+        grouped_rows = group_lines_by_family(all_lines, include_customer=(customer_id is None))
+    
+        # Create workbook
+        wb = Workbook()
+        ws_summary = wb.active
+        ws_summary.title = "Summary"
+    
+        # --- Summary sheet ---
+        if grouped_rows:
+            headers = list(grouped_rows[0].keys())
+            ws_summary.append(headers)
+            for row in grouped_rows:
+                ws_summary.append([row.get(h, "") for h in headers])
+    
+        # --- Detail sheets ---
+        if customer_id:
+            ws_detail = wb.create_sheet(title="Detail")
+    
+            if all_lines:
+                headers = list(all_lines[0].keys())
+                ws_detail.append(headers)
+                for r in all_lines:
+                    ws_detail.append([r.get(h, "") for h in headers])
+        else:
+            by_customer = defaultdict(list)
+    
+            for r in all_lines:
+                name = (r.get("CustomerName") or "UNKNOWN")[:31]
+                by_customer[name].append(r)
+    
+            for customer_name, rows in by_customer.items():
+                ws = wb.create_sheet(title=customer_name)
+    
+                if rows:
+                    headers = list(rows[0].keys())
+                    ws.append(headers)
+                    for r in rows:
+                        ws.append([r.get(h, "") for h in headers])
+    
+        # Save file
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+    
+        if customer_id:
+            filename = f"invoice_lines_excel_{year}_{realmId}_customer_{customer_id}.xlsx"
+        else:
+            filename = f"invoice_lines_excel_{year}_{realmId}.xlsx"
+    
+        return StreamingResponse(
+            buf,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
