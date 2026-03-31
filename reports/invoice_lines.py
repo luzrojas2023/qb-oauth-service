@@ -1155,17 +1155,27 @@ def download_invoice_lines_with_family_for_year(
 
     # 🔥 attach family (NO grouping)
     all_lines = attach_family_codes(request, all_lines)
-
-    '''
+    
     all_lines.sort(key=lambda x: (
     str(x.get("CustomerName", "")) if customer_id is None else "",
-    str(x.get("FamilyCode", "")),
-    str(x.get("Item", "")),
+    # str(x.get("FamilyCode", "")),
+    # str(x.get("Item", "")),
     str(x.get("TxnDate", "")),
     ))
-    '''
 
     # CSV output
+    customer_name = ""
+    if customer_id and all_lines:
+        customer_name = str(all_lines[0].get("CustomerName", "")).strip()
+
+    text_buf = io.StringIO()
+
+    if customer_id:
+        text_buf.write(f"{customer_name}\n")
+        text_buf.write(f"Year {year}\n\n")
+    else:
+        text_buf.write(f"Year {year}\n\n")
+    
     if customer_id:
         fieldnames = [
             "DocNumber",
@@ -1196,7 +1206,7 @@ def download_invoice_lines_with_family_for_year(
             "Qty",
         ]
 
-    text_buf = io.StringIO()
+    # text_buf = io.StringIO()
     writer = csv.DictWriter(text_buf, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
 
