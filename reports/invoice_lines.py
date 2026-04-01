@@ -2159,3 +2159,280 @@ def compare_invoice_lines_summary_year_vs_year(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+@router.get("/compare/month/{year_a}/{month_a}/vs/{year_b}/{month_b}")
+def compare_invoice_lines_summary_month_vs_month(
+    request: Request,
+    realmId: str,
+    year_a: int,
+    month_a: int,
+    year_b: int,
+    month_b: int,
+    customer_id: str | None = None,
+):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+
+    get_valid_access_token = request.app.state.get_valid_access_token
+    qbo_api_base = request.app.state.qbo_api_base
+
+    if customer_id is not None:
+        customer_id = customer_id.strip()
+        if customer_id == "":
+            return JSONResponse(
+                {"error": "invalid_customer_id", "message": "customer_id cannot be empty"},
+                status_code=400,
+            )
+
+    if month_a < 1 or month_a > 12 or month_b < 1 or month_b > 12:
+        return JSONResponse({"error": "invalid_month"}, status_code=400)
+
+    try:
+        access_token = get_valid_access_token(realmId)
+    except RuntimeError as e:
+        msg = str(e)
+        if msg.startswith("RECONNECT_REQUIRED"):
+            return JSONResponse(
+                {"error": "reconnect_required", "connect_url": "/connect", "message": msg},
+                status_code=401,
+            )
+        return JSONResponse({"error": "auth_failed", "message": msg}, status_code=500)
+
+    def fetch_period_lines(year_val: int, month_val: int) -> list[dict]:
+        last_day = monthrange(year_val, month_val)[1]
+        start_date = f"{year_val}-{month_val:02d}-01"
+        end_date = f"{year_val}-{month_val:02d}-{last_day:02d}"
+
+        q = build_invoice_query(start_date, end_date, customer_id=customer_id)
+        invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
+        invoices = safe_filter_invoices_by_customer(invoices, customer_id=customer_id)
+
+        lines: list[dict] = []
+        for inv in invoices:
+            rows = flatten_invoice_lines(inv)
+            for r in rows:
+                r["RealmId"] = realmId
+            lines.extend(rows)
+
+        lines = attach_family_codes(request, lines)
+        return lines
+
+    def summarize_by_family(lines: list[dict]) -> dict[str, dict]:
+        summary: dict[str, dict] = {}
+
+        for r in lines:
+            family_code = str(r.get("FamilyCode", "UNASSIGNED")).strip() or "UNASSIGNED"
+            item_name = str(r.get("Item", "")).strip()
+
+            if family_code not in summary:
+                summary[family_code] = {
+                    "FamilyCode": family_code,
+                    "Item": item_name,
+                    "TotalQty": Decimal("0"),
+                    "TotalSales": Decimal("0"),
+                }
+
+            summary[family_code]["TotalQty"] += to_decimal(r.get("Qty"))
+            summary[family_code]["TotalSales"] += to_decimal(r.get("Amount"))
+
+        return summary
+
+    lines_a = fetch_period_lines(year_a, month_a)
+    lines_b = fetch_period_lines(year_b, month_b)
+
+    summary_a = summarize_by_family(lines_a)
+    summary_b = summarize_by_family(lines_b)
+
+    all_families = sorted(set(summary_a.keys()) | set(summary_b.keys()))
+
+    label_a = f"{year_a}-{month_a:02d}"
+    label_b = f"{year_b}-{month_b:02d}"
+
+    comparison_rows: list[dict] = []
+    total_qty_a = Decimal("0")
+    total_qty_b = Decimal("0")
+    total_sales_a = Decimal("0")
+    total_sales_b = Decimal("0")
+
+    for family_code in all_families:
+        row_a = summary_a.get(family_code, {})
+        row_b = summary_b.get(family_code, {})
+
+        item_name = (
+            str(row_a.get("Item", "")).strip()
+            or str(row_b.get("Item", "")).strip()
+        )
+
+        qty_a = to_decimal(row_a.get("TotalQty"))
+        qty_b = to_decimal(row_b.get("TotalQty"))
+        sales_a = to_decimal(row_a.get("TotalSales"))
+        sales_b = to_decimal(row_b.get("TotalSales"))
+
+        sales_diff = sales_a - sales_b
+        pct_diff = None
+        if sales_b != 0:
+            pct_diff = (sales_diff / sales_b) * Decimal("100")
+
+        comparison_rows.append({
+            "FamilyCode": family_code,
+            "Item": item_name,
+            f"{label_a} UNITS": float(qty_a),
+            f"{label_b} UNITS": float(qty_b),
+            f"{label_a} SALES": float(sales_a),
+            f"{label_b} SALES": float(sales_b),
+            "$ Difference": float(sales_diff),
+            "% Difference": float(pct_diff) if pct_diff is not None else None,
+        })
+
+        total_qty_a += qty_a
+        total_qty_b += qty_b
+        total_sales_a += sales_a
+        total_sales_b += sales_b
+
+    total_diff = total_sales_a - total_sales_b
+    total_pct_diff = None
+    if total_sales_b != 0:
+        total_pct_diff = (total_diff / total_sales_b) * Decimal("100")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Comparison"
+
+    title = f"{label_a} v {label_b} Orders by Item Family"
+    customer_name = ""
+    if customer_id:
+        source_lines = lines_a if lines_a else lines_b
+        if source_lines:
+            customer_name = str(source_lines[0].get("CustomerName", "")).strip()
+        if customer_name:
+            title = f"{customer_name} - {title}"
+
+    headers = [
+        "FamilyCode",
+        "Item",
+        f"{label_a} UNITS",
+        f"{label_b} UNITS",
+        f"{label_a} SALES",
+        f"{label_b} SALES",
+        "$ Difference",
+        "% Difference",
+    ]
+
+    thin = Side(style="thin", color="000000")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    bold_font = Font(bold=True)
+    title_font = Font(bold=True, size=14)
+    header_fill = PatternFill(fill_type="solid", fgColor="D9D9D9")
+
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(headers))
+    ws.cell(row=2, column=1, value=title)
+    ws.cell(row=2, column=1).font = title_font
+    ws.cell(row=2, column=1).alignment = Alignment(horizontal="center")
+
+    header_row = 4
+    for col_idx, header in enumerate(headers, start=1):
+        cell = ws.cell(row=header_row, column=col_idx, value=header)
+        cell.font = bold_font
+        cell.fill = header_fill
+        cell.border = border
+        cell.alignment = Alignment(horizontal="center")
+
+    start_data_row = header_row + 1
+    row_idx = start_data_row
+
+    for row in comparison_rows:
+        ws.cell(row=row_idx, column=1, value=row["FamilyCode"])
+        ws.cell(row=row_idx, column=2, value=row["Item"])
+        ws.cell(row=row_idx, column=3, value=row[f"{label_a} UNITS"])
+        ws.cell(row=row_idx, column=4, value=row[f"{label_b} UNITS"])
+        ws.cell(row=row_idx, column=5, value=row[f"{label_a} SALES"])
+        ws.cell(row=row_idx, column=6, value=row[f"{label_b} SALES"])
+        ws.cell(row=row_idx, column=7, value=row["$ Difference"])
+        ws.cell(row=row_idx, column=8, value=row["% Difference"])
+
+        for col_idx in range(1, len(headers) + 1):
+            ws.cell(row=row_idx, column=col_idx).border = border
+
+        row_idx += 1
+
+    total_row = row_idx
+    ws.cell(row=total_row, column=1, value="TOTAL")
+    ws.cell(row=total_row, column=3, value=float(total_qty_a))
+    ws.cell(row=total_row, column=4, value=float(total_qty_b))
+    ws.cell(row=total_row, column=5, value=float(total_sales_a))
+    ws.cell(row=total_row, column=6, value=float(total_sales_b))
+    ws.cell(row=total_row, column=7, value=float(total_diff))
+    ws.cell(row=total_row, column=8, value=float(total_pct_diff) if total_pct_diff is not None else None)
+
+    for col_idx in range(1, len(headers) + 1):
+        cell = ws.cell(row=total_row, column=col_idx)
+        cell.font = bold_font
+        cell.border = border
+        cell.fill = header_fill
+
+    for r in range(start_data_row, total_row + 1):
+        for c in [5, 6, 7]:
+            ws.cell(row=r, column=c).number_format = '$ #,##0.00;[Red]-$ #,##0.00'
+
+        pct_cell = ws.cell(row=r, column=8)
+        if pct_cell.value is not None:
+            pct_cell.value = pct_cell.value / 100
+        pct_cell.number_format = '0%'
+
+    ws.freeze_panes = "A5"
+
+    for col_cells in ws.columns:
+        max_length = 0
+        col_letter = col_cells[0].column_letter
+        for cell in col_cells:
+            value = "" if cell.value is None else str(cell.value)
+            if len(value) > max_length:
+                max_length = len(value)
+        ws.column_dimensions[col_letter].width = min(max_length + 2, 28)
+
+    notes_row = total_row + 3
+    ws.cell(row=notes_row, column=1, value="Totals").font = bold_font
+    ws.cell(row=notes_row + 1, column=1, value=f"{label_a}:")
+    ws.cell(row=notes_row + 1, column=2, value=float(total_qty_a))
+    ws.cell(row=notes_row + 1, column=3, value=float(total_sales_a))
+    ws.cell(row=notes_row + 2, column=1, value=f"{label_b}:")
+    ws.cell(row=notes_row + 2, column=2, value=float(total_qty_b))
+    ws.cell(row=notes_row + 2, column=3, value=float(total_sales_b))
+    ws.cell(row=notes_row + 3, column=1, value="Difference:")
+    ws.cell(row=notes_row + 3, column=2, value=float(total_diff))
+    if total_pct_diff is not None:
+        ws.cell(row=notes_row + 3, column=3, value=float(total_pct_diff) / 100)
+        ws.cell(row=notes_row + 3, column=3).number_format = '0%'
+
+    ws.cell(row=notes_row + 1, column=3).number_format = '$ #,##0.00;[Red]-$ #,##0.00'
+    ws.cell(row=notes_row + 2, column=3).number_format = '$ #,##0.00;[Red]-$ #,##0.00'
+    ws.cell(row=notes_row + 3, column=2).number_format = '$ #,##0.00;[Red]-$ #,##0.00'
+
+    analysis_text = (
+        f"{label_a} total sales were "
+        f"{'higher' if total_diff > 0 else 'lower' if total_diff < 0 else 'equal to'} "
+        f"{label_b} by ${abs(float(total_diff)):,.2f}."
+    )
+    ws.cell(row=notes_row + 5, column=1, value="Analysis").font = bold_font
+    ws.cell(row=notes_row + 6, column=1, value=analysis_text)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    if customer_id:
+        filename = (
+            f"invoice_lines_compare_{year_a}_{month_a:02d}_vs_{year_b}_{month_b:02d}_"
+            f"{realmId}_customer_{customer_id}.xlsx"
+        )
+    else:
+        filename = (
+            f"invoice_lines_compare_{year_a}_{month_a:02d}_vs_{year_b}_{month_b:02d}_"
+            f"{realmId}.xlsx"
+        )
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
