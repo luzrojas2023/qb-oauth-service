@@ -2461,7 +2461,7 @@ def compare_invoice_lines_summary_quarter_vs_quarter(
                 status_code=400,
             )
 
-    if quarter_a not in (1,2,3,4) or quarter_b not in (1,2,3,4):
+    if quarter_a not in (1, 2, 3, 4) or quarter_b not in (1, 2, 3, 4):
         return JSONResponse({"error": "invalid_quarter"}, status_code=400)
 
     try:
@@ -2475,129 +2475,250 @@ def compare_invoice_lines_summary_quarter_vs_quarter(
             )
         return JSONResponse({"error": "auth_failed", "message": msg}, status_code=500)
 
-    def get_dates(year_val, q):
-        if q == 1:
-            return f"{year_val}-01-01", f"{year_val}-03-31"
-        if q == 2:
-            return f"{year_val}-04-01", f"{year_val}-06-30"
-        if q == 3:
-            return f"{year_val}-07-01", f"{year_val}-09-30"
-        return f"{year_val}-10-01", f"{year_val}-12-31"
-
-    def fetch_period_lines(year_val, quarter_val):
-        start_date, end_date = get_dates(year_val, quarter_val)
+    def fetch_period_lines(year_val: int, quarter_val: int) -> list[dict]:
+        if quarter_val == 1:
+            start_date = f"{year_val}-01-01"
+            end_date = f"{year_val}-03-31"
+        elif quarter_val == 2:
+            start_date = f"{year_val}-04-01"
+            end_date = f"{year_val}-06-30"
+        elif quarter_val == 3:
+            start_date = f"{year_val}-07-01"
+            end_date = f"{year_val}-09-30"
+        else:
+            start_date = f"{year_val}-10-01"
+            end_date = f"{year_val}-12-31"
 
         q = build_invoice_query(start_date, end_date, customer_id=customer_id)
         invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
         invoices = safe_filter_invoices_by_customer(invoices, customer_id=customer_id)
 
-        lines = []
+        lines: list[dict] = []
         for inv in invoices:
             rows = flatten_invoice_lines(inv)
             for r in rows:
                 r["RealmId"] = realmId
             lines.extend(rows)
 
-        return attach_family_codes(request, lines)
+        lines = attach_family_codes(request, lines)
+        return lines
 
-    def summarize(lines):
-        out = {}
+    def summarize_by_family(lines: list[dict]) -> dict[str, dict]:
+        summary: dict[str, dict] = {}
+
         for r in lines:
-            fc = str(r.get("FamilyCode","UNASSIGNED")).strip() or "UNASSIGNED"
-            item = str(r.get("Item","")).strip()
+            family_code = str(r.get("FamilyCode", "UNASSIGNED")).strip() or "UNASSIGNED"
+            item_name = str(r.get("Item", "")).strip()
 
-            if fc not in out:
-                out[fc] = {"Item": item, "Qty": Decimal("0"), "Sales": Decimal("0")}
+            if family_code not in summary:
+                summary[family_code] = {
+                    "FamilyCode": family_code,
+                    "Item": item_name,
+                    "TotalQty": Decimal("0"),
+                    "TotalSales": Decimal("0"),
+                }
 
-            out[fc]["Qty"] += to_decimal(r.get("Qty"))
-            out[fc]["Sales"] += to_decimal(r.get("Amount"))
-        return out
+            summary[family_code]["TotalQty"] += to_decimal(r.get("Qty"))
+            summary[family_code]["TotalSales"] += to_decimal(r.get("Amount"))
+
+        return summary
 
     lines_a = fetch_period_lines(year_a, quarter_a)
     lines_b = fetch_period_lines(year_b, quarter_b)
 
-    s_a = summarize(lines_a)
-    s_b = summarize(lines_b)
+    summary_a = summarize_by_family(lines_a)
+    summary_b = summarize_by_family(lines_b)
 
-    families = sorted(set(s_a.keys()) | set(s_b.keys()))
+    all_families = sorted(set(summary_a.keys()) | set(summary_b.keys()))
 
     label_a = f"{year_a} Q{quarter_a}"
     label_b = f"{year_b} Q{quarter_b}"
+
+    comparison_rows: list[dict] = []
+    total_qty_a = Decimal("0")
+    total_qty_b = Decimal("0")
+    total_sales_a = Decimal("0")
+    total_sales_b = Decimal("0")
+
+    for family_code in all_families:
+        row_a = summary_a.get(family_code, {})
+        row_b = summary_b.get(family_code, {})
+
+        item_name = (
+            str(row_a.get("Item", "")).strip()
+            or str(row_b.get("Item", "")).strip()
+        )
+
+        qty_a = to_decimal(row_a.get("TotalQty"))
+        qty_b = to_decimal(row_b.get("TotalQty"))
+        sales_a = to_decimal(row_a.get("TotalSales"))
+        sales_b = to_decimal(row_b.get("TotalSales"))
+
+        sales_diff = sales_a - sales_b
+        pct_diff = None
+        if sales_b != 0:
+            pct_diff = (sales_diff / sales_b) * Decimal("100")
+
+        comparison_rows.append({
+            "FamilyCode": family_code,
+            "Item": item_name,
+            f"{label_a} UNITS": float(qty_a),
+            f"{label_b} UNITS": float(qty_b),
+            f"{label_a} SALES": float(sales_a),
+            f"{label_b} SALES": float(sales_b),
+            "$ Difference": float(sales_diff),
+            "% Difference": float(pct_diff) if pct_diff is not None else None,
+        })
+
+        total_qty_a += qty_a
+        total_qty_b += qty_b
+        total_sales_a += sales_a
+        total_sales_b += sales_b
+
+    total_diff = total_sales_a - total_sales_b
+    total_pct_diff = None
+    if total_sales_b != 0:
+        total_pct_diff = (total_diff / total_sales_b) * Decimal("100")
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Comparison"
 
+    title = f"{label_a} v {label_b} Orders by Item Family"
+    customer_name = ""
+    if customer_id:
+        source_lines = lines_a if lines_a else lines_b
+        if source_lines:
+            customer_name = str(source_lines[0].get("CustomerName", "")).strip()
+        if customer_name:
+            title = f"{customer_name} - {title}"
+
     headers = [
-        "FamilyCode","Item",
-        f"{label_a} UNITS", f"{label_b} UNITS",
-        f"{label_a} SALES", f"{label_b} SALES",
-        "$ Difference","% Difference"
+        "FamilyCode",
+        "Item",
+        f"{label_a} UNITS",
+        f"{label_b} UNITS",
+        f"{label_a} SALES",
+        f"{label_b} SALES",
+        "$ Difference",
+        "% Difference",
     ]
 
-    ws.append([])
-    ws.append([f"{label_a} v {label_b} Orders by Item Family"])
-    ws.append([])
-    ws.append(headers)
+    thin = Side(style="thin", color="000000")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    bold_font = Font(bold=True)
+    title_font = Font(bold=True, size=14)
+    header_fill = PatternFill(fill_type="solid", fgColor="D9D9D9")
 
-    row_idx = 5
-    total_a = Decimal("0")
-    total_b = Decimal("0")
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(headers))
+    ws.cell(row=2, column=1, value=title)
+    ws.cell(row=2, column=1).font = title_font
+    ws.cell(row=2, column=1).alignment = Alignment(horizontal="center")
 
-    for fc in families:
-        a = s_a.get(fc, {})
-        b = s_b.get(fc, {})
+    header_row = 4
+    for col_idx, header in enumerate(headers, start=1):
+        cell = ws.cell(row=header_row, column=col_idx, value=header)
+        cell.font = bold_font
+        cell.fill = header_fill
+        cell.border = border
+        cell.alignment = Alignment(horizontal="center")
 
-        item = a.get("Item") or b.get("Item","")
-        qa = to_decimal(a.get("Qty"))
-        qb = to_decimal(b.get("Qty"))
-        sa = to_decimal(a.get("Sales"))
-        sb = to_decimal(b.get("Sales"))
+    start_data_row = header_row + 1
+    row_idx = start_data_row
 
-        diff = sa - sb
-        pct = (diff / sb * 100) if sb != 0 else None
+    for row in comparison_rows:
+        ws.cell(row=row_idx, column=1, value=row["FamilyCode"])
+        ws.cell(row=row_idx, column=2, value=row["Item"])
+        ws.cell(row=row_idx, column=3, value=row[f"{label_a} UNITS"])
+        ws.cell(row=row_idx, column=4, value=row[f"{label_b} UNITS"])
+        ws.cell(row=row_idx, column=5, value=row[f"{label_a} SALES"])
+        ws.cell(row=row_idx, column=6, value=row[f"{label_b} SALES"])
+        ws.cell(row=row_idx, column=7, value=row["$ Difference"])
+        ws.cell(row=row_idx, column=8, value=row["% Difference"])
 
-        ws.append([
-            fc, item,
-            float(qa), float(qb),
-            float(sa), float(sb),
-            float(diff),
-            float(pct) if pct is not None else None
-        ])
+        for col_idx in range(1, len(headers) + 1):
+            ws.cell(row=row_idx, column=col_idx).border = border
 
-        total_a += sa
-        total_b += sb
+        row_idx += 1
 
-    total_diff = total_a - total_b
+    total_row = row_idx
+    ws.cell(row=total_row, column=1, value="TOTAL")
+    ws.cell(row=total_row, column=3, value=float(total_qty_a))
+    ws.cell(row=total_row, column=4, value=float(total_qty_b))
+    ws.cell(row=total_row, column=5, value=float(total_sales_a))
+    ws.cell(row=total_row, column=6, value=float(total_sales_b))
+    ws.cell(row=total_row, column=7, value=float(total_diff))
+    ws.cell(row=total_row, column=8, value=float(total_pct_diff) if total_pct_diff is not None else None)
 
-    ws.append([
-        "TOTAL","",
-        "",
-        "",
-        float(total_a),
-        float(total_b),
-        float(total_diff),
-        float((total_diff/total_b)*100) if total_b!=0 else None
-    ])
+    for col_idx in range(1, len(headers) + 1):
+        cell = ws.cell(row=total_row, column=col_idx)
+        cell.font = bold_font
+        cell.border = border
+        cell.fill = header_fill
+
+    for r in range(start_data_row, total_row + 1):
+        for c in [5, 6, 7]:
+            ws.cell(row=r, column=c).number_format = '$ #,##0.00;[Red]-$ #,##0.00'
+
+        pct_cell = ws.cell(row=r, column=8)
+        if pct_cell.value is not None:
+            pct_cell.value = pct_cell.value / 100
+        pct_cell.number_format = '0%'
 
     ws.freeze_panes = "A5"
 
-    for col in ws.columns:
-        max_len = max(len(str(c.value)) if c.value else 0 for c in col)
-        ws.column_dimensions[col[0].column_letter].width = min(max_len+2,28)
+    for col_cells in ws.columns:
+        max_length = 0
+        col_letter = col_cells[0].column_letter
+        for cell in col_cells:
+            value = "" if cell.value is None else str(cell.value)
+            if len(value) > max_length:
+                max_length = len(value)
+        ws.column_dimensions[col_letter].width = min(max_length + 2, 28)
+
+    notes_row = total_row + 3
+    ws.cell(row=notes_row, column=1, value="Totals").font = bold_font
+    ws.cell(row=notes_row + 1, column=1, value=f"{label_a}:")
+    ws.cell(row=notes_row + 1, column=2, value=float(total_qty_a))
+    ws.cell(row=notes_row + 1, column=3, value=float(total_sales_a))
+    ws.cell(row=notes_row + 2, column=1, value=f"{label_b}:")
+    ws.cell(row=notes_row + 2, column=2, value=float(total_qty_b))
+    ws.cell(row=notes_row + 2, column=3, value=float(total_sales_b))
+    ws.cell(row=notes_row + 3, column=1, value="Difference:")
+    ws.cell(row=notes_row + 3, column=2, value=float(total_diff))
+    if total_pct_diff is not None:
+        ws.cell(row=notes_row + 3, column=3, value=float(total_pct_diff) / 100)
+        ws.cell(row=notes_row + 3, column=3).number_format = '0%'
+
+    ws.cell(row=notes_row + 1, column=3).number_format = '$ #,##0.00;[Red]-$ #,##0.00'
+    ws.cell(row=notes_row + 2, column=3).number_format = '$ #,##0.00;[Red]-$ #,##0.00'
+    ws.cell(row=notes_row + 3, column=2).number_format = '$ #,##0.00;[Red]-$ #,##0.00'
+
+    analysis_text = (
+        f"{label_a} total sales were "
+        f"{'higher' if total_diff > 0 else 'lower' if total_diff < 0 else 'equal to'} "
+        f"{label_b} by ${abs(float(total_diff)):,.2f}."
+    )
+    ws.cell(row=notes_row + 5, column=1, value="Analysis").font = bold_font
+    ws.cell(row=notes_row + 6, column=1, value=analysis_text)
 
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
 
-    filename = (
-        f"invoice_lines_compare_{year_a}_Q{quarter_a}_vs_{year_b}_Q{quarter_b}_{realmId}_customer_{customer_id}.xlsx"
-        if customer_id
-        else f"invoice_lines_compare_{year_a}_Q{quarter_a}_vs_{year_b}_Q{quarter_b}_{realmId}.xlsx"
-    )
+    if customer_id:
+        filename = (
+            f"invoice_lines_compare_{year_a}_Q{quarter_a}_vs_{year_b}_Q{quarter_b}_"
+            f"{realmId}_customer_{customer_id}.xlsx"
+        )
+    else:
+        filename = (
+            f"invoice_lines_compare_{year_a}_Q{quarter_a}_vs_{year_b}_Q{quarter_b}_"
+            f"{realmId}.xlsx"
+        )
 
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename=\"{filename}\"'},
     )
