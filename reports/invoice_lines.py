@@ -2436,3 +2436,168 @@ def compare_invoice_lines_summary_month_vs_month(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+@router.get("/compare/quarter/{year_a}/{quarter_a}/vs/{year_b}/{quarter_b}")
+def compare_invoice_lines_summary_quarter_vs_quarter(
+    request: Request,
+    realmId: str,
+    year_a: int,
+    quarter_a: int,
+    year_b: int,
+    quarter_b: int,
+    customer_id: str | None = None,
+):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+
+    get_valid_access_token = request.app.state.get_valid_access_token
+    qbo_api_base = request.app.state.qbo_api_base
+
+    if customer_id is not None:
+        customer_id = customer_id.strip()
+        if customer_id == "":
+            return JSONResponse(
+                {"error": "invalid_customer_id", "message": "customer_id cannot be empty"},
+                status_code=400,
+            )
+
+    if quarter_a not in (1,2,3,4) or quarter_b not in (1,2,3,4):
+        return JSONResponse({"error": "invalid_quarter"}, status_code=400)
+
+    try:
+        access_token = get_valid_access_token(realmId)
+    except RuntimeError as e:
+        msg = str(e)
+        if msg.startswith("RECONNECT_REQUIRED"):
+            return JSONResponse(
+                {"error": "reconnect_required", "connect_url": "/connect", "message": msg},
+                status_code=401,
+            )
+        return JSONResponse({"error": "auth_failed", "message": msg}, status_code=500)
+
+    def get_dates(year_val, q):
+        if q == 1:
+            return f"{year_val}-01-01", f"{year_val}-03-31"
+        if q == 2:
+            return f"{year_val}-04-01", f"{year_val}-06-30"
+        if q == 3:
+            return f"{year_val}-07-01", f"{year_val}-09-30"
+        return f"{year_val}-10-01", f"{year_val}-12-31"
+
+    def fetch_period_lines(year_val, quarter_val):
+        start_date, end_date = get_dates(year_val, quarter_val)
+
+        q = build_invoice_query(start_date, end_date, customer_id=customer_id)
+        invoices = qbo_query_all(realmId, q, access_token, qbo_api_base)
+        invoices = safe_filter_invoices_by_customer(invoices, customer_id=customer_id)
+
+        lines = []
+        for inv in invoices:
+            rows = flatten_invoice_lines(inv)
+            for r in rows:
+                r["RealmId"] = realmId
+            lines.extend(rows)
+
+        return attach_family_codes(request, lines)
+
+    def summarize(lines):
+        out = {}
+        for r in lines:
+            fc = str(r.get("FamilyCode","UNASSIGNED")).strip() or "UNASSIGNED"
+            item = str(r.get("Item","")).strip()
+
+            if fc not in out:
+                out[fc] = {"Item": item, "Qty": Decimal("0"), "Sales": Decimal("0")}
+
+            out[fc]["Qty"] += to_decimal(r.get("Qty"))
+            out[fc]["Sales"] += to_decimal(r.get("Amount"))
+        return out
+
+    lines_a = fetch_period_lines(year_a, quarter_a)
+    lines_b = fetch_period_lines(year_b, quarter_b)
+
+    s_a = summarize(lines_a)
+    s_b = summarize(lines_b)
+
+    families = sorted(set(s_a.keys()) | set(s_b.keys()))
+
+    label_a = f"{year_a} Q{quarter_a}"
+    label_b = f"{year_b} Q{quarter_b}"
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Comparison"
+
+    headers = [
+        "FamilyCode","Item",
+        f"{label_a} UNITS", f"{label_b} UNITS",
+        f"{label_a} SALES", f"{label_b} SALES",
+        "$ Difference","% Difference"
+    ]
+
+    ws.append([])
+    ws.append([f"{label_a} v {label_b} Orders by Item Family"])
+    ws.append([])
+    ws.append(headers)
+
+    row_idx = 5
+    total_a = Decimal("0")
+    total_b = Decimal("0")
+
+    for fc in families:
+        a = s_a.get(fc, {})
+        b = s_b.get(fc, {})
+
+        item = a.get("Item") or b.get("Item","")
+        qa = to_decimal(a.get("Qty"))
+        qb = to_decimal(b.get("Qty"))
+        sa = to_decimal(a.get("Sales"))
+        sb = to_decimal(b.get("Sales"))
+
+        diff = sa - sb
+        pct = (diff / sb * 100) if sb != 0 else None
+
+        ws.append([
+            fc, item,
+            float(qa), float(qb),
+            float(sa), float(sb),
+            float(diff),
+            float(pct) if pct is not None else None
+        ])
+
+        total_a += sa
+        total_b += sb
+
+    total_diff = total_a - total_b
+
+    ws.append([
+        "TOTAL","",
+        "",
+        "",
+        float(total_a),
+        float(total_b),
+        float(total_diff),
+        float((total_diff/total_b)*100) if total_b!=0 else None
+    ])
+
+    ws.freeze_panes = "A5"
+
+    for col in ws.columns:
+        max_len = max(len(str(c.value)) if c.value else 0 for c in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len+2,28)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = (
+        f"invoice_lines_compare_{year_a}_Q{quarter_a}_vs_{year_b}_Q{quarter_b}_{realmId}_customer_{customer_id}.xlsx"
+        if customer_id
+        else f"invoice_lines_compare_{year_a}_Q{quarter_a}_vs_{year_b}_Q{quarter_b}_{realmId}.xlsx"
+    )
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
