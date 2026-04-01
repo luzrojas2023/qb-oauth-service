@@ -2139,7 +2139,7 @@ def compare_invoice_lines_summary_year_vs_year(
 
     analysis_text = (
         f"{year_a} total sales were "
-        f"{'higher' if total_diff > 0 else 'lower' if total_diff < 0 else 'equal to'} "
+        f"{'higher than' if total_diff > 0 else 'lower than' if total_diff < 0 else 'equal to'} "
         f"{year_b} by ${abs(float(total_diff)):,.2f}."
     )
     ws.cell(row=notes_row + 5, column=1, value="Analysis").font = bold_font
@@ -2410,7 +2410,7 @@ def compare_invoice_lines_summary_month_vs_month(
 
     analysis_text = (
         f"{label_a} total sales were "
-        f"{'higher' if total_diff > 0 else 'lower' if total_diff < 0 else 'equal to'} "
+        f"{'higher than' if total_diff > 0 else 'lower than' if total_diff < 0 else 'equal to'} "
         f"{label_b} by ${abs(float(total_diff)):,.2f}."
     )
     ws.cell(row=notes_row + 5, column=1, value="Analysis").font = bold_font
@@ -2696,7 +2696,7 @@ def compare_invoice_lines_summary_quarter_vs_quarter(
 
     analysis_text = (
         f"{label_a} total sales were "
-        f"{'higher' if total_diff > 0 else 'lower' if total_diff < 0 else 'equal to'} "
+        f"{'higher than' if total_diff > 0 else 'lower than' if total_diff < 0 else 'equal to'} "
         f"{label_b} by ${abs(float(total_diff)):,.2f}."
     )
     ws.cell(row=notes_row + 5, column=1, value="Analysis").font = bold_font
