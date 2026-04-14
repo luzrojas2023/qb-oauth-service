@@ -119,6 +119,55 @@ def to_decimal(val: Any) -> Decimal:
     except (InvalidOperation, ValueError, TypeError):
         return Decimal("0")
 
+def normalize_item_name(name: str) -> str:
+    return (name or "").strip()
+
+def fetch_alias_family_map(request: Request, item_names: list[str]) -> dict[str, str]:
+    """
+    Looks up family_code through item_alias.alias_name_normalized
+    joined to item_catalog.
+    """
+    clean_names = sorted({
+        normalize_item_name(x)
+        for x in item_names
+        if normalize_item_name(x)
+    })
+
+    if not clean_names:
+        return {}
+
+    alias_family_map: dict[str, str] = {}
+
+    chunk_size = 500
+    for i in range(0, len(clean_names), chunk_size):
+        chunk = clean_names[i:i + chunk_size]
+
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        ia.alias_name_normalized,
+                        ic.family_code
+                    from item_alias ia
+                    join item_catalog ic
+                      on ic.id = ia.item_catalog_id
+                    where ia.alias_name_normalized = any(%s)
+                      and ia.active = true
+                    """,
+                    (chunk,)
+                )
+                rows = cur.fetchall() or []
+
+                for r in rows:
+                    alias_name_normalized = str(r.get("alias_name_normalized", "")).strip()
+                    family_code = str(r.get("family_code", "") or "").strip()
+
+                    if alias_name_normalized:
+                        alias_family_map[alias_name_normalized] = family_code or "UNASSIGNED"
+
+    return alias_family_map
+
 def fetch_item_family_map(request: Request, item_ids: list[str]) -> dict[str, str]:
     """
     Looks up family_code in item_catalog using qbo_item_id
@@ -155,6 +204,7 @@ def fetch_item_family_map(request: Request, item_ids: list[str]) -> dict[str, st
     return family_map
 
 def attach_family_codes(request: Request, all_lines: list[dict]) -> list[dict]:
+    # 1) Primary lookup by qbo_item_id (existing behavior)
     item_ids = [
         str(r.get("ItemId", "")).strip()
         for r in all_lines
@@ -163,9 +213,33 @@ def attach_family_codes(request: Request, all_lines: list[dict]) -> list[dict]:
 
     family_map = fetch_item_family_map(request, item_ids)
 
+    # 2) Collect invoice item names only for rows not resolved by ItemId
+    unresolved_item_names = []
     for r in all_lines:
         item_id = str(r.get("ItemId", "")).strip()
-        r["FamilyCode"] = family_map.get(item_id, "UNASSIGNED")
+        if item_id and item_id in family_map:
+            continue
+
+        item_name = normalize_item_name(r.get("Item", ""))
+        if item_name:
+            unresolved_item_names.append(item_name)
+
+    # 3) Fallback lookup by alias_name_normalized
+    alias_family_map = fetch_alias_family_map(request, unresolved_item_names)
+
+    # 4) Assign FamilyCode
+    for r in all_lines:
+        item_id = str(r.get("ItemId", "")).strip()
+
+        if item_id and item_id in family_map:
+            r["FamilyCode"] = family_map[item_id]
+            continue
+
+        item_name = normalize_item_name(r.get("Item", ""))
+        if item_name and item_name in alias_family_map:
+            r["FamilyCode"] = alias_family_map[item_name]
+        else:
+            r["FamilyCode"] = "UNASSIGNED"
 
     return all_lines
 
