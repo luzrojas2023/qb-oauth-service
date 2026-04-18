@@ -1593,6 +1593,7 @@ def download_invoice_lines_excel_for_year(
     customer_id: str | None = None,
 ):
     from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
     from collections import defaultdict
 
     get_valid_access_token = request.app.state.get_valid_access_token
@@ -1718,6 +1719,7 @@ def download_invoice_lines_excel_for_month(
     customer_id: str | None = None,
 ):
     from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
     from collections import defaultdict
 
     get_valid_access_token = request.app.state.get_valid_access_token
@@ -1843,6 +1845,7 @@ def download_invoice_lines_excel_for_quarter(
     customer_id: str | None = None,
 ):
     from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
     from collections import defaultdict
 
     get_valid_access_token = request.app.state.get_valid_access_token
