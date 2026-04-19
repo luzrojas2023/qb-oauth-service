@@ -1960,9 +1960,9 @@ def download_invoice_lines_excel_for_quarter(
     buf.seek(0)
 
     filename = (
-        f"invoice_lines_excel_{year}_Q{quarter}_{realmId}_customer_{customer_id}.xlsx"
+        f"invoice_lines_excel_{year}_Q{quarter}_customer_{customer_id}.xlsx"
         if customer_id
-        else f"invoice_lines_excel_{year}_Q{quarter}_{realmId}.xlsx"
+        else f"invoice_lines_excel_{year}_Q{quarter}.xlsx"
     )
 
     return StreamingResponse(
@@ -2108,7 +2108,7 @@ def compare_invoice_lines_summary_year_vs_year(
             title = f"{customer_name} - {title}"
 
     headers = [
-        "FamilyCode",
+        "Item Family",
         "Item",
         f"{year_a} UNITS",
         f"{year_b} UNITS",
@@ -2227,9 +2227,9 @@ def compare_invoice_lines_summary_year_vs_year(
     buf.seek(0)
 
     if customer_id:
-        filename = f"invoice_lines_compare_{year_a}_vs_{year_b}_{realmId}_customer_{customer_id}.xlsx"
+        filename = f"invoice_lines_compare_{year_a}_vs_{year_b}_customer_{customer_id}.xlsx"
     else:
-        filename = f"invoice_lines_compare_{year_a}_vs_{year_b}_{realmId}.xlsx"
+        filename = f"invoice_lines_compare_{year_a}_vs_{year_b}.xlsx"
 
     return StreamingResponse(
         buf,
@@ -2385,7 +2385,7 @@ def compare_invoice_lines_summary_month_vs_month(
             title = f"{customer_name} - {title}"
 
     headers = [
-        "FamilyCode",
+        "Item Family",
         "Item",
         f"{label_a} UNITS",
         f"{label_b} UNITS",
@@ -2500,12 +2500,11 @@ def compare_invoice_lines_summary_month_vs_month(
     if customer_id:
         filename = (
             f"invoice_lines_compare_{year_a}_{month_a:02d}_vs_{year_b}_{month_b:02d}_"
-            f"{realmId}_customer_{customer_id}.xlsx"
+            f"customer_{customer_id}.xlsx"
         )
     else:
         filename = (
-            f"invoice_lines_compare_{year_a}_{month_a:02d}_vs_{year_b}_{month_b:02d}_"
-            f"{realmId}.xlsx"
+            f"invoice_lines_compare_{year_a}_{month_a:02d}_vs_{year_b}_{month_b:02d}.xlsx"
         )
 
     return StreamingResponse(
@@ -2671,7 +2670,7 @@ def compare_invoice_lines_summary_quarter_vs_quarter(
             title = f"{customer_name} - {title}"
 
     headers = [
-        "FamilyCode",
+        "Item Family",
         "Item",
         f"{label_a} UNITS",
         f"{label_b} UNITS",
@@ -2786,12 +2785,11 @@ def compare_invoice_lines_summary_quarter_vs_quarter(
     if customer_id:
         filename = (
             f"invoice_lines_compare_{year_a}_Q{quarter_a}_vs_{year_b}_Q{quarter_b}_"
-            f"{realmId}_customer_{customer_id}.xlsx"
+            f"customer_{customer_id}.xlsx"
         )
     else:
         filename = (
-            f"invoice_lines_compare_{year_a}_Q{quarter_a}_vs_{year_b}_Q{quarter_b}_"
-            f"{realmId}.xlsx"
+            f"invoice_lines_compare_{year_a}_Q{quarter_a}_vs_{year_b}_Q{quarter_b}.xlsx"
         )
 
     return StreamingResponse(
