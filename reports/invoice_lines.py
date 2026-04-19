@@ -1982,6 +1982,7 @@ def compare_invoice_lines_summary_year_vs_year(
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
     from openpyxl.utils import get_column_letter
+    import re
 
     get_valid_access_token = request.app.state.get_valid_access_token
     qbo_api_base = request.app.state.qbo_api_base
@@ -2254,6 +2255,7 @@ def compare_invoice_lines_summary_month_vs_month(
 ):
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+    import re
 
     get_valid_access_token = request.app.state.get_valid_access_token
     qbo_api_base = request.app.state.qbo_api_base
@@ -2535,6 +2537,7 @@ def compare_invoice_lines_summary_quarter_vs_quarter(
 ):
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+    import re
 
     get_valid_access_token = request.app.state.get_valid_access_token
     qbo_api_base = request.app.state.qbo_api_base
