@@ -2106,7 +2106,11 @@ def compare_invoice_lines_summary_year_vs_year(
         customer_name = str(lines_a[0].get("CustomerName", "")).strip()
         if customer_name:
             title = f"{customer_name} - {title}"
-            ws.title = f"{customer_name}"
+            # Remove forbidden characters for worksheet title
+            clean_name = re.sub(r'[\\/*?:\[\]]', '', customer_name)
+            # Take first 10 characters
+            short_name = clean_name[:10]
+            ws.title = short_name
 
     headers = [
         "Item Family",
@@ -2384,7 +2388,11 @@ def compare_invoice_lines_summary_month_vs_month(
             customer_name = str(source_lines[0].get("CustomerName", "")).strip()
         if customer_name:
             title = f"{customer_name} - {title}"
-            ws.title = f"{customer_name}"
+            # Remove forbidden characters for worksheet title
+            clean_name = re.sub(r'[\\/*?:\[\]]', '', customer_name)
+            # Take first 10 characters
+            short_name = clean_name[:10]
+            ws.title = short_name
 
     headers = [
         "Item Family",
@@ -2670,7 +2678,11 @@ def compare_invoice_lines_summary_quarter_vs_quarter(
             customer_name = str(source_lines[0].get("CustomerName", "")).strip()
         if customer_name:
             title = f"{customer_name} - {title}"
-            ws.title = f"{customer_name}"
+            # Remove forbidden characters for worksheet title
+            clean_name = re.sub(r'[\\/*?:\[\]]', '', customer_name)
+            # Take first 10 characters
+            short_name = clean_name[:10]
+            ws.title = short_name
 
     headers = [
         "Item Family",
