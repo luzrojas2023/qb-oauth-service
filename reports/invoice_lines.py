@@ -2106,6 +2106,7 @@ def compare_invoice_lines_summary_year_vs_year(
         customer_name = str(lines_a[0].get("CustomerName", "")).strip()
         if customer_name:
             title = f"{customer_name} - {title}"
+            ws.title = {customer_name}
 
     headers = [
         "Item Family",
@@ -2227,9 +2228,9 @@ def compare_invoice_lines_summary_year_vs_year(
     buf.seek(0)
 
     if customer_id:
-        filename = f"invoice_lines_compare_{year_a}_vs_{year_b}_customer_{customer_id}.xlsx"
+        filename = f"sales_compare_{year_a}_vs_{year_b}_customer_{customer_id}.xlsx"
     else:
-        filename = f"invoice_lines_compare_{year_a}_vs_{year_b}.xlsx"
+        filename = f"sales_compare_{year_a}_vs_{year_b}.xlsx"
 
     return StreamingResponse(
         buf,
@@ -2383,6 +2384,7 @@ def compare_invoice_lines_summary_month_vs_month(
             customer_name = str(source_lines[0].get("CustomerName", "")).strip()
         if customer_name:
             title = f"{customer_name} - {title}"
+            ws.title = {customer_name}
 
     headers = [
         "Item Family",
@@ -2499,12 +2501,12 @@ def compare_invoice_lines_summary_month_vs_month(
 
     if customer_id:
         filename = (
-            f"invoice_lines_compare_{year_a}_{month_a:02d}_vs_{year_b}_{month_b:02d}_"
+            f"sales_compare_{year_a}_{month_a:02d}_vs_{year_b}_{month_b:02d}_"
             f"customer_{customer_id}.xlsx"
         )
     else:
         filename = (
-            f"invoice_lines_compare_{year_a}_{month_a:02d}_vs_{year_b}_{month_b:02d}.xlsx"
+            f"sales_compare_{year_a}_{month_a:02d}_vs_{year_b}_{month_b:02d}.xlsx"
         )
 
     return StreamingResponse(
@@ -2668,6 +2670,7 @@ def compare_invoice_lines_summary_quarter_vs_quarter(
             customer_name = str(source_lines[0].get("CustomerName", "")).strip()
         if customer_name:
             title = f"{customer_name} - {title}"
+            ws.title = {customer_name}
 
     headers = [
         "Item Family",
@@ -2784,12 +2787,12 @@ def compare_invoice_lines_summary_quarter_vs_quarter(
 
     if customer_id:
         filename = (
-            f"invoice_lines_compare_{year_a}_Q{quarter_a}_vs_{year_b}_Q{quarter_b}_"
+            f"sales_compare_{year_a}_Q{quarter_a}_vs_{year_b}_Q{quarter_b}_"
             f"customer_{customer_id}.xlsx"
         )
     else:
         filename = (
-            f"invoice_lines_compare_{year_a}_Q{quarter_a}_vs_{year_b}_Q{quarter_b}.xlsx"
+            f"sales_compare_{year_a}_Q{quarter_a}_vs_{year_b}_Q{quarter_b}.xlsx"
         )
 
     return StreamingResponse(
