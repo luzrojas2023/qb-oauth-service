@@ -54,9 +54,9 @@ def autosize_worksheet_columns(ws):
 
 def detail_row_for_excel(r: dict, include_customer: bool) -> dict:
     row = {
-        "FamilyCode": r.get("FamilyCode", ""),
-        "DocNumber": r.get("DocNumber", ""),
-        "TxnDate": r.get("TxnDate", ""),
+        "Item Family": r.get("FamilyCode", ""),
+        "Invoice #": r.get("DocNumber", ""),
+        "Invc Date": r.get("TxnDate", ""),
         "P.O. Number": r.get("P.O. Number", ""),
         "Amount": r.get("Amount", ""),
         "Description": r.get("Description", ""),
@@ -67,7 +67,7 @@ def detail_row_for_excel(r: dict, include_customer: bool) -> dict:
     }
 
     if include_customer:
-        row["CustomerName"] = r.get("CustomerName", "")
+        row["Customer"] = r.get("CustomerName", "")
 
     return row
 
