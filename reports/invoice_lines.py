@@ -54,9 +54,9 @@ def autosize_worksheet_columns(ws):
 
 def detail_row_for_excel(r: dict, include_customer: bool) -> dict:
     row = {
-        "FamilyCode": r.get("FamilyCode", ""),
-        "DocNumber": r.get("DocNumber", ""),
-        "TxnDate": r.get("TxnDate", ""),
+        "Item Family": r.get("FamilyCode", ""),
+        "Invoice #": r.get("DocNumber", ""),
+        "Invc Date": r.get("TxnDate", ""),
         "P.O. Number": r.get("P.O. Number", ""),
         "Amount": r.get("Amount", ""),
         "Description": r.get("Description", ""),
@@ -559,7 +559,7 @@ def append_compare_invoice_lines_summary_year_vs_year_sheet(
 
             if family_code not in summary:
                 summary[family_code] = {
-                    "FamilyCode": family_code,
+                    "Item Family": family_code,
                     "Item": item_name,
                     "TotalQty": Decimal("0"),
                     "TotalSales": Decimal("0"),
@@ -604,7 +604,7 @@ def append_compare_invoice_lines_summary_year_vs_year_sheet(
             pct_diff = (sales_diff / sales_b) * Decimal("100")
 
         comparison_rows.append({
-            "FamilyCode": family_code,
+            "Item Family": family_code,
             "Item": item_name,
             f"{year_a} UNITS": float(qty_a),
             f"{year_b} UNITS": float(qty_b),
@@ -629,10 +629,9 @@ def append_compare_invoice_lines_summary_year_vs_year_sheet(
     if customer_id and lines_a:
         customer_name = str(lines_a[0].get("CustomerName", "")).strip()
         if customer_name:
-            clean_name = re.sub(r'[\\/*?:\[\]]', '', customer_name)
-            short_name = clean_name[:20]
-            if short_name:
-                sheet_name = short_name
+            safe_name = safe_sheet_name(customer_name)
+            if safe_name:
+                sheet_name = safe_name
 
     sheet_name = unique_sheet_name(wb, sheet_name)
     ws = wb.create_sheet(title=sheet_name)
@@ -840,8 +839,8 @@ def download_invoice_lines_for_year(
             fieldnames = [
                 # requested invoice parent fields
                 #"InvoiceId",
-                "DocNumber",
-                "TxnDate",
+                "Invoice #",
+                "Invc Date",
                 "P.O. Number",
                         
                 # rest of your line fields
@@ -857,9 +856,9 @@ def download_invoice_lines_for_year(
             fieldnames = [
                 # requested invoice parent fields
                 #"InvoiceId",
-                "DocNumber",
-                "TxnDate",
-                "CustomerName",
+                "Invc Number",
+                "Invc Date",
+                "Customer",
                 "P.O. Number",
                         
                 # rest of your line fields
@@ -887,9 +886,9 @@ def download_invoice_lines_for_year(
         buf.seek(0)
 
         if customer_id:
-            filename = f"invoice_lines_{year}_{realmId}_customer_{customer_id}.csv"
+            filename = f"invoice_lines_{year}_customer_{customer_id}.csv"
         else:
-            filename = f"invoice_lines_{year}_{realmId}.csv"
+            filename = f"invoice_lines_{year}.csv"
 
         return StreamingResponse(
             buf,
@@ -959,9 +958,9 @@ def download_invoice_lines_for_month(
         buf.seek(0)
         
         if customer_id:
-            filename = f"invoice_lines_{year}_{month:02d}_{realmId}_customer_{customer_id}.json"
+            filename = f"invoice_lines_{year}_{month:02d}_customer_{customer_id}.json"
         else:
-            filename = f"invoice_lines_{year}_{month:02d}_{realmId}.json"
+            filename = f"invoice_lines_{year}_{month:02d}.json"
         
         return StreamingResponse(
             buf,
@@ -987,8 +986,8 @@ def download_invoice_lines_for_month(
         
         if customer_id:
             fieldnames = [
-                "DocNumber",
-                "TxnDate",
+                "Invoice #",
+                "Invc Date",
                 "P.O. Number",
                 "LineId",
                 "Amount",
@@ -1000,9 +999,9 @@ def download_invoice_lines_for_month(
             ]
         else: 
             fieldnames = [
-                "DocNumber",
-                "TxnDate",
-                "CustomerName",
+                "Invoice #",
+                "Invc Date",
+                "Customer",
                 "P.O. Number",
                 "LineId",
                 "Amount",
@@ -1025,9 +1024,9 @@ def download_invoice_lines_for_month(
         buf.seek(0)
 
         if customer_id:
-            filename = f"invoice_lines_{year}_{month:02d}_{realmId}_customer_{customer_id}.csv"
+            filename = f"invoice_lines_{year}_{month:02d}_customer_{customer_id}.csv"
         else:
-            filename = f"invoice_lines_{year}_{month:02d}_{realmId}.csv"
+            filename = f"invoice_lines_{year}_{month:02d}.csv"
         
         return StreamingResponse(
             buf,
@@ -1102,9 +1101,9 @@ def download_invoice_lines_for_quarter(
         buf.seek(0)
 
         if customer_id:
-            filename = f"invoice_lines_{year}_Q{quarter}_{realmId}_customer_{customer_id}.json"
+            filename = f"invoice_lines_{year}_Q{quarter}_customer_{customer_id}.json"
         else:
-            filename = f"invoice_lines_{year}_Q{quarter}_{realmId}.json"
+            filename = f"invoice_lines_{year}_Q{quarter}.json"
 
         return StreamingResponse(
             buf,
@@ -1129,8 +1128,8 @@ def download_invoice_lines_for_quarter(
         
         if customer_id:
             fieldnames = [
-                "DocNumber",
-                "TxnDate",
+                "Invoice #",
+                "Invc Date",
                 "P.O. Number",
                 "LineId",
                 "Amount",
@@ -1142,9 +1141,9 @@ def download_invoice_lines_for_quarter(
             ]
         else:
             fieldnames = [
-                "DocNumber",
-                "TxnDate",
-                "CustomerName",
+                "Invoice #",
+                "Invc Date",
+                "Customer",
                 "P.O. Number",
                 "LineId",
                 "Amount",
@@ -1167,9 +1166,9 @@ def download_invoice_lines_for_quarter(
         buf.seek(0)
 
         if customer_id:
-            filename = f"invoice_lines_{year}_Q{quarter}_{realmId}_customer_{customer_id}.csv"
+            filename = f"invoice_lines_{year}_Q{quarter}_customer_{customer_id}.csv"
         else:
-            filename = f"invoice_lines_{year}_Q{quarter}_{realmId}.csv"
+            filename = f"invoice_lines_{year}_Q{quarter}.csv"
 
         return StreamingResponse(
             buf,
@@ -1240,15 +1239,15 @@ def download_invoice_lines_grouped_by_family_for_year(
 
     if customer_id:
         fieldnames = [
-            "FamilyCode",
+            "Item Family",
             "Item",
             "TotalQty",
             "TotalSales",
         ]
     else:
         fieldnames = [
-            "CustomerName",
-            "FamilyCode",
+            "Customer",
+            "Item Family",
             "Item",
             "TotalQty",
             "TotalSales",
@@ -1265,9 +1264,9 @@ def download_invoice_lines_grouped_by_family_for_year(
     buf.seek(0)
 
     if customer_id:
-        filename = f"invoice_lines_grouped_family_{year}_{realmId}_customer_{customer_id}.csv"
+        filename = f"invoice_lines_grouped_family_{year}_customer_{customer_id}.csv"
     else:
-        filename = f"invoice_lines_grouped_family_{year}_{realmId}.csv"
+        filename = f"invoice_lines_grouped_family_{year}.csv"
 
     return StreamingResponse(
         buf,
@@ -1343,15 +1342,15 @@ def download_invoice_lines_grouped_by_family_for_month(
 
     if customer_id:
         fieldnames = [
-            "FamilyCode",
+            "Item Family",
             "Item",
             "TotalQty",
             "TotalSales",
         ]
     else:
         fieldnames = [
-            "CustomerName",
-            "FamilyCode",
+            "Customer",
+            "Item Family",
             "Item",
             "TotalQty",
             "TotalSales",
@@ -1368,9 +1367,9 @@ def download_invoice_lines_grouped_by_family_for_month(
     buf.seek(0)
 
     if customer_id:
-        filename = f"invoice_lines_grouped_family_{year}_{month:02d}_{realmId}_customer_{customer_id}.csv"
+        filename = f"invoice_lines_grouped_family_{year}_{month:02d}_customer_{customer_id}.csv"
     else:
-        filename = f"invoice_lines_grouped_family_{year}_{month:02d}_{realmId}.csv"
+        filename = f"invoice_lines_grouped_family_{year}_{month:02d}.csv"
 
     return StreamingResponse(
         buf,
@@ -1455,15 +1454,15 @@ def download_invoice_lines_grouped_by_family_for_quarter(
 
     if customer_id:
         fieldnames = [
-            "FamilyCode",
+            "Item Family",
             "Item",
             "TotalQty",
             "TotalSales",
         ]
     else:
         fieldnames = [
-            "CustomerName",
-            "FamilyCode",
+            "Customer",
+            "Item Family",
             "Item",
             "TotalQty",
             "TotalSales",
@@ -1480,9 +1479,9 @@ def download_invoice_lines_grouped_by_family_for_quarter(
     buf.seek(0)
 
     if customer_id:
-        filename = f"invoice_lines_grouped_family_{year}_Q{quarter}_{realmId}_customer_{customer_id}.csv"
+        filename = f"invoice_lines_grouped_family_{year}_Q{quarter}_customer_{customer_id}.csv"
     else:
-        filename = f"invoice_lines_grouped_family_{year}_Q{quarter}_{realmId}.csv"
+        filename = f"invoice_lines_grouped_family_{year}_Q{quarter}.csv"
 
     return StreamingResponse(
         buf,
@@ -1559,9 +1558,9 @@ def download_invoice_lines_with_family_for_year(
     
     if customer_id:
         fieldnames = [
-            "FamilyCode",   # 👈 NEW FIELD
-            "DocNumber",
-            "TxnDate",
+            "Item Family",   # 👈 NEW FIELD
+            "Invoice #",
+            "Invc Date",
             "P.O. Number",
             "Amount",
             "Description",
@@ -1572,10 +1571,10 @@ def download_invoice_lines_with_family_for_year(
         ]
     else:
         fieldnames = [
-            "FamilyCode",   # 👈 NEW FIELD
-            "DocNumber",
-            "TxnDate",
-            "CustomerName",
+            "Item Family",   # 👈 NEW FIELD
+            "Invoice #",
+            "Invc Date",
+            "Customer",
             "P.O. Number",
             "Amount",
             "Description",
@@ -1596,9 +1595,9 @@ def download_invoice_lines_with_family_for_year(
     buf.seek(0)
 
     if customer_id:
-        filename = f"invoice_lines_with_family_{year}_{realmId}_customer_{customer_id}.csv"
+        filename = f"invoice_lines_with_family_{year}_customer_{customer_id}.csv"
     else:
-        filename = f"invoice_lines_with_family_{year}_{realmId}.csv"
+        filename = f"invoice_lines_with_family_{year}.csv"
 
     return StreamingResponse(
         buf,
@@ -1679,9 +1678,9 @@ def download_invoice_lines_with_family_for_month(
     
     if customer_id:
         fieldnames = [
-            "FamilyCode",
-            "DocNumber",
-            "TxnDate",
+            "Item Family",
+            "Invoice #",
+            "Invc Date",
             "P.O. Number",
             "Amount",
             "Description",
@@ -1692,10 +1691,10 @@ def download_invoice_lines_with_family_for_month(
         ]
     else:
         fieldnames = [
-            "FamilyCode",
-            "DocNumber",
-            "TxnDate",
-            "CustomerName",
+            "Item Family",
+            "Invoice #",
+            "Invc Date",
+            "Customer",
             "P.O. Number",
             "Amount",
             "Description",
@@ -1717,9 +1716,9 @@ def download_invoice_lines_with_family_for_month(
     buf.seek(0)
 
     if customer_id:
-        filename = f"invoice_lines_with_family_{year}_{month:02d}_{realmId}_customer_{customer_id}.csv"
+        filename = f"invoice_lines_with_family_{year}_{month:02d}_customer_{customer_id}.csv"
     else:
-        filename = f"invoice_lines_with_family_{year}_{month:02d}_{realmId}.csv"
+        filename = f"invoice_lines_with_family_{year}_{month:02d}.csv"
 
     return StreamingResponse(
         buf,
@@ -1809,9 +1808,9 @@ def download_invoice_lines_with_family_for_quarter(
     
     if customer_id:
         fieldnames = [
-            "FamilyCode",
-            "DocNumber",
-            "TxnDate",
+            "Item Family",
+            "Invoice #",
+            "Invc Date",
             "P.O. Number",
             "Amount",
             "Description",
@@ -1822,10 +1821,10 @@ def download_invoice_lines_with_family_for_quarter(
         ]
     else:
         fieldnames = [
-            "FamilyCode",
-            "DocNumber",
-            "TxnDate",
-            "CustomerName",
+            "Item Family",
+            "Invoice #",
+            "Invc Date",
+            "Customer",
             "P.O. Number",
             "Amount",
             "Description",
@@ -1847,9 +1846,9 @@ def download_invoice_lines_with_family_for_quarter(
     buf.seek(0)
 
     if customer_id:
-        filename = f"invoice_lines_with_family_{year}_Q{quarter}_{realmId}_customer_{customer_id}.csv"
+        filename = f"invoice_lines_with_family_{year}_Q{quarter}_customer_{customer_id}.csv"
     else:
-        filename = f"invoice_lines_with_family_{year}_Q{quarter}_{realmId}.csv"
+        filename = f"invoice_lines_with_family_{year}_Q{quarter}.csv"
 
     return StreamingResponse(
         buf,
@@ -1973,9 +1972,9 @@ def download_invoice_lines_excel_for_year(
     buf.seek(0)
 
     if customer_id:
-        filename = f"invoice_lines_excel_{year}_{realmId}_customer_{customer_id}.xlsx"
+        filename = f"sales_{year}_customer_{customer_id}.xlsx"
     else:
-        filename = f"invoice_lines_excel_{year}_{realmId}.xlsx"
+        filename = f"sales_{year}.xlsx"
 
     return StreamingResponse(
         buf,
@@ -2099,9 +2098,9 @@ def download_invoice_lines_excel_for_month(
     buf.seek(0)
 
     filename = (
-        f"invoice_lines_excel_{year}_{month:02d}_{realmId}_customer_{customer_id}.xlsx"
+        f"invoice_lines_excel_{year}_{month:02d}_customer_{customer_id}.xlsx"
         if customer_id
-        else f"invoice_lines_excel_{year}_{month:02d}_{realmId}.xlsx"
+        else f"invoice_lines_excel_{year}_{month:02d}.xlsx"
     )
 
     return StreamingResponse(
@@ -2235,9 +2234,9 @@ def download_invoice_lines_excel_for_quarter(
     buf.seek(0)
 
     filename = (
-        f"invoice_lines_excel_{year}_Q{quarter}_customer_{customer_id}.xlsx"
+        f"sales_{year}_Q{quarter}_customer_{customer_id}.xlsx"
         if customer_id
-        else f"invoice_lines_excel_{year}_Q{quarter}.xlsx"
+        else f"sales_{year}_Q{quarter}.xlsx"
     )
 
     return StreamingResponse(
@@ -2308,7 +2307,7 @@ def compare_invoice_lines_summary_year_vs_year(
 
             if family_code not in summary:
                 summary[family_code] = {
-                    "FamilyCode": family_code,
+                    "Item Family": family_code,
                     "Item": item_name,
                     "TotalQty": Decimal("0"),
                     "TotalSales": Decimal("0"),
@@ -2353,7 +2352,7 @@ def compare_invoice_lines_summary_year_vs_year(
             pct_diff = (sales_diff / sales_b) * Decimal("100")
 
         comparison_rows.append({
-            "FamilyCode": family_code,
+            "Item Family": family_code,
             "Item": item_name,
             f"{year_a} UNITS": float(qty_a),
             f"{year_b} UNITS": float(qty_b),
@@ -2382,11 +2381,8 @@ def compare_invoice_lines_summary_year_vs_year(
         customer_name = str(lines_a[0].get("CustomerName", "")).strip()
         if customer_name:
             title = f"{customer_name} - {title}"
-            # Remove forbidden characters for worksheet title
-            clean_name = re.sub(r'[\\/*?:\[\]]', '', customer_name)
-            # Take first 10 characters
-            short_name = clean_name[:10]
-            ws.title = short_name
+            safe_name = safe_sheet_name(customer_name)
+            ws.title = safe_name
 
     headers = [
         "Item Family",
@@ -2665,11 +2661,8 @@ def compare_invoice_lines_summary_month_vs_month(
             customer_name = str(source_lines[0].get("CustomerName", "")).strip()
         if customer_name:
             title = f"{customer_name} - {title}"
-            # Remove forbidden characters for worksheet title
-            clean_name = re.sub(r'[\\/*?:\[\]]', '', customer_name)
-            # Take first 10 characters
-            short_name = clean_name[:10]
-            ws.title = short_name
+            safe_name = safe_sheet_name(customer_name)
+            ws.title = safe_name
 
     headers = [
         "Item Family",
@@ -2924,7 +2917,7 @@ def compare_invoice_lines_summary_quarter_vs_quarter(
             pct_diff = (sales_diff / sales_b) * Decimal("100")
 
         comparison_rows.append({
-            "FamilyCode": family_code,
+            "Item Family": family_code,
             "Item": item_name,
             f"{label_a} UNITS": float(qty_a),
             f"{label_b} UNITS": float(qty_b),
@@ -2956,11 +2949,8 @@ def compare_invoice_lines_summary_quarter_vs_quarter(
             customer_name = str(source_lines[0].get("CustomerName", "")).strip()
         if customer_name:
             title = f"{customer_name} - {title}"
-            # Remove forbidden characters for worksheet title
-            clean_name = re.sub(r'[\\/*?:\[\]]', '', customer_name)
-            # Take first 10 characters
-            short_name = clean_name[:10]
-            ws.title = short_name
+            safe_name = safe_sheet_name(customer_name)
+            ws.title = safe_name
 
     headers = [
         "Item Family",
