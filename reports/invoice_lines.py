@@ -280,8 +280,8 @@ def group_lines_by_family(all_lines: list[dict], include_customer: bool = False)
 
         if key not in grouped:
             grouped[key] = {
-                "CustomerName": customer_name,
-                "FamilyCode": family_code,
+                "Customer": customer_name,
+                "Item Family": family_code,
                 "Item": str(r.get("Item", "")).strip(),
                 "TotalQty": Decimal("0"),
                 "TotalSales": Decimal("0"),
