@@ -280,8 +280,8 @@ def group_lines_by_family(all_lines: list[dict], include_customer: bool = False)
 
         if key not in grouped:
             grouped[key] = {
-                "Customer": customer_name,
-                "Item Family": family_code,
+                "CustomerName": customer_name,
+                "FamilyCode": family_code,
                 "Item": str(r.get("Item", "")).strip(),
                 "TotalQty": Decimal("0"),
                 "TotalSales": Decimal("0"),
@@ -294,24 +294,24 @@ def group_lines_by_family(all_lines: list[dict], include_customer: bool = False)
     for g in grouped.values():
         if include_customer:
             results.append({
-                "CustomerName": g["CustomerName"],
-                "FamilyCode": g["FamilyCode"],
+                "Customer": g["CustomerName"],
+                "Item Family": g["FamilyCode"],
                 "Item": g["Item"],
                 "TotalQty": float(g["TotalQty"]),
                 "TotalSales": float(g["TotalSales"]),
             })
         else:
             results.append({
-                "FamilyCode": g["FamilyCode"],
+                "Item Family": g["FamilyCode"],
                 "Item": g["Item"],
                 "TotalQty": float(g["TotalQty"]),
                 "TotalSales": float(g["TotalSales"]),
             })
 
     if include_customer:
-        results.sort(key=lambda x: (x["CustomerName"], x["FamilyCode"], x["Item"]))
+        results.sort(key=lambda x: (x["Customer"], x["Item Family"], x["Item"]))
     else:
-        results.sort(key=lambda x: (x["FamilyCode"], x["Item"]))
+        results.sort(key=lambda x: (x["Item Family"], x["Item"]))
 
     return results
 
