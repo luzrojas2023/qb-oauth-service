@@ -54,9 +54,9 @@ def autosize_worksheet_columns(ws):
 
 def detail_row_for_excel(r: dict, include_customer: bool) -> dict:
     row = {
-        "Item Family": r.get("FamilyCode", ""),
-        "Invoice #": r.get("DocNumber", ""),
-        "Invc Date": r.get("TxnDate", ""),
+        "FamilyCode": r.get("FamilyCode", ""),
+        "DocNumber": r.get("DocNumber", ""),
+        "TxnDate": r.get("TxnDate", ""),
         "P.O. Number": r.get("P.O. Number", ""),
         "Amount": r.get("Amount", ""),
         "Description": r.get("Description", ""),
@@ -559,7 +559,7 @@ def append_compare_invoice_lines_summary_year_vs_year_sheet(
 
             if family_code not in summary:
                 summary[family_code] = {
-                    "Item Family": family_code,
+                    "FamilyCode": family_code,
                     "Item": item_name,
                     "TotalQty": Decimal("0"),
                     "TotalSales": Decimal("0"),
@@ -604,7 +604,7 @@ def append_compare_invoice_lines_summary_year_vs_year_sheet(
             pct_diff = (sales_diff / sales_b) * Decimal("100")
 
         comparison_rows.append({
-            "Item Family": family_code,
+            "FamilyCode": family_code,
             "Item": item_name,
             f"{year_a} UNITS": float(qty_a),
             f"{year_b} UNITS": float(qty_b),
