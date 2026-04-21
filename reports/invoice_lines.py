@@ -1947,13 +1947,14 @@ def download_invoice_lines_excel_for_year(
         autosize_worksheet_columns(ws_detail)
     else:
         by_customer = defaultdict(list)
-    
+
         for r in all_lines:
-            name = (r.get("CustomerName") or "UNKNOWN")[:31]
+            raw_name = r.get("CustomerName") or "UNKNOWN"
+            name = safe_sheet_name(raw_name)
             by_customer[name].append(r)
-    
+        
         for customer_name, rows in by_customer.items():
-            ws = wb.create_sheet(title=customer_name)
+            ws = wb.create_sheet(title=unique_sheet_name(wb, customer_name))
     
             detail_rows = [detail_row_for_excel(r, include_customer=False) for r in rows]
     
@@ -2073,13 +2074,14 @@ def download_invoice_lines_excel_for_month(
         autosize_worksheet_columns(ws_detail)
     else:
         by_customer = defaultdict(list)
-    
+
         for r in all_lines:
-            name = (r.get("CustomerName") or "UNKNOWN")[:31]
+            raw_name = r.get("CustomerName") or "UNKNOWN"
+            name = safe_sheet_name(raw_name)
             by_customer[name].append(r)
-    
+        
         for customer_name, rows in by_customer.items():
-            ws = wb.create_sheet(title=customer_name)
+            ws = wb.create_sheet(title=unique_sheet_name(wb, customer_name))
     
             detail_rows = [detail_row_for_excel(r, include_customer=False) for r in rows]
     
@@ -2208,13 +2210,14 @@ def download_invoice_lines_excel_for_quarter(
         autosize_worksheet_columns(ws_detail)
     else:
         by_customer = defaultdict(list)
-    
+
         for r in all_lines:
-            name = (r.get("CustomerName") or "UNKNOWN")[:31]
+            raw_name = r.get("CustomerName") or "UNKNOWN"
+            name = safe_sheet_name(raw_name)
             by_customer[name].append(r)
-    
+        
         for customer_name, rows in by_customer.items():
-            ws = wb.create_sheet(title=customer_name)
+            ws = wb.create_sheet(title=unique_sheet_name(wb, customer_name))
     
             detail_rows = [detail_row_for_excel(r, include_customer=False) for r in rows]
     
