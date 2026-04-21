@@ -2352,7 +2352,7 @@ def compare_invoice_lines_summary_year_vs_year(
             pct_diff = (sales_diff / sales_b) * Decimal("100")
 
         comparison_rows.append({
-            "Item Family": family_code,
+            "FamilyCode": family_code,
             "Item": item_name,
             f"{year_a} UNITS": float(qty_a),
             f"{year_b} UNITS": float(qty_b),
