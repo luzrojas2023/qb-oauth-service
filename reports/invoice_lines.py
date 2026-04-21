@@ -2917,7 +2917,7 @@ def compare_invoice_lines_summary_quarter_vs_quarter(
             pct_diff = (sales_diff / sales_b) * Decimal("100")
 
         comparison_rows.append({
-            "Item Family": family_code,
+            "FamilyCode": family_code,
             "Item": item_name,
             f"{label_a} UNITS": float(qty_a),
             f"{label_b} UNITS": float(qty_b),
