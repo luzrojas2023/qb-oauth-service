@@ -2307,7 +2307,7 @@ def compare_invoice_lines_summary_year_vs_year(
 
             if family_code not in summary:
                 summary[family_code] = {
-                    "Item Family": family_code,
+                    "FamilyCode": family_code,
                     "Item": item_name,
                     "TotalQty": Decimal("0"),
                     "TotalSales": Decimal("0"),
