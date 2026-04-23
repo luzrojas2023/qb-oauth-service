@@ -677,7 +677,7 @@ def append_compare_invoice_lines_summary_year_vs_year_sheet(
     sheet_name = unique_sheet_name(wb, sheet_name)
     ws = wb.create_sheet(title=sheet_name)
 
-    title = f"{year_a} v {year_b} Orders by Item Family"
+    title = f"{year_a} vs {year_b} Sales by Item Family"
 
     display_name = (customer_display_name or "").strip()
     if display_name:
@@ -840,7 +840,7 @@ def append_compare_invoice_lines_summary_all_customers_sheet(
 
     ws = wb.create_sheet(title=unique_sheet_name(wb, "Summary"))
 
-    title = f"All Customers - {year_a} v {year_b} Sales Comparison"
+    title = f"All Customers - {year_a} vs {year_b} Sales Comparison"
     headers = [
         "Customer",
         f"{year_a} UNITS",
@@ -2632,7 +2632,7 @@ def compare_invoice_lines_summary_year_vs_year(
     ws = wb.active
     ws.title = "Comparison"
 
-    title = f"{year_a} v {year_b} Orders by Item Family"
+    title = f"{year_a} vs {year_b} Sales by Item Family"
     if customer_id and lines_a:
         customer_name = str(lines_a[0].get("CustomerName", "")).strip()
         if customer_name:
@@ -2909,7 +2909,7 @@ def compare_invoice_lines_summary_month_vs_month(
     ws = wb.active
     ws.title = "Comparison"
 
-    title = f"{label_a} v {label_b} Orders by Item Family"
+    title = f"{label_a} vs {label_b} Sales by Item Family"
     customer_name = ""
     if customer_id:
         source_lines = lines_a if lines_a else lines_b
@@ -3197,7 +3197,7 @@ def compare_invoice_lines_summary_quarter_vs_quarter(
     ws = wb.active
     ws.title = "Comparison"
 
-    title = f"{label_a} v {label_b} Orders by Item Family"
+    title = f"{label_a} vs {label_b} Sales by Item Family"
     customer_name = ""
     if customer_id:
         source_lines = lines_a if lines_a else lines_b
