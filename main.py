@@ -15,6 +15,8 @@ from reports.invoices import router as invoices_router
 from reports.invoice_lines_all import router as invoice_lines_all_router
 from reports.invoice_lines import router as invoice_lines_router
 
+from updates.invoices import router as invoice_updates_router
+
 load_dotenv()
 
 app = FastAPI()
@@ -22,6 +24,7 @@ app.include_router(invoices_all_router)
 app.include_router(invoices_router)
 app.include_router(invoice_lines_all_router)
 app.include_router(invoice_lines_router)
+app.include_router(invoice_updates_router)
 
 AUTHORIZE_URL = "https://appcenter.intuit.com/connect/oauth2"
 TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
@@ -313,4 +316,3 @@ def company_info(realmId: str):
 
 app.state.get_valid_access_token = get_valid_access_token
 app.state.qbo_api_base = QBO_API_BASE
-
