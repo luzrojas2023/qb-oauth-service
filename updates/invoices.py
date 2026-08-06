@@ -293,13 +293,20 @@ def update_invoice_custom_fields(
     )
 
     if not invoices:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"Invoice {doc_number} was not found "
-                "in QuickBooks."
-            ),
-        )
+        return {
+            "success": True,
+            "updated": False,
+            "result": "invoice_not_found",
+            "invoice_id": None,
+            "doc_number": doc_number,
+            "sync_token": None,
+            "po_number": None,
+            "wo_so_number": None,
+            "message": (
+                f"Invoice {doc_number} was not found in QuickBooks. "
+                "No update was performed."
+            ) 
+        }
 
     if len(invoices) > 1:
         raise HTTPException(
@@ -407,9 +414,12 @@ def update_invoice_custom_fields(
 
     return {
         "success": True,
+        "updated": True,
+        "result": "invoice_updated",
         "invoice_id": updated_invoice.get("Id"),
         "doc_number": updated_invoice.get("DocNumber"),
         "sync_token": updated_invoice.get("SyncToken"),
         "po_number": returned_po_number,
         "wo_so_number": returned_wo_so_number,
+        "message": "QuickBooks invoice custom fields were updated.",
     }

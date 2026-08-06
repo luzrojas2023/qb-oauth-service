@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "irt-qbo-legal",
+			"path": "../../irt-qbo-legal"
+		}
+	],
+	"settings": {}
+}
